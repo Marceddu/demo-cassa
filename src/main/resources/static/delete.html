@@ -1,12 +1,32 @@
 <!doctype html>
-<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Elimina Ordini</title></head>
+
+<html lang="it">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Elimina Ordini</title>
+  <style>
+    :root{--bg:#0b1220;--card:#121c32;--txt:#eef4ff;--line:#28406d;--danger:#ef4444}
+    body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,sans-serif}
+    .wrap{max-width:900px;margin:20px auto;padding:0 16px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+    .item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px;border:1px solid var(--line);border-radius:10px;margin-top:8px;background:#0f172a}
+    .btn{border:none;border-radius:10px;padding:8px 12px;font-weight:700;cursor:pointer;background:var(--danger);color:#fff}
+  </style>
+</head>
 <body>
-<h1>Elimina ordini</h1>
-<div id="list"></div>
+<div class="wrap">
+  <h1>Elimina ordini</h1>
+  <div id="list" class="card"></div>
+</div>
 <script>
 async function load(){
   const data = await fetch('/getordini?status=NEW,IN_PROGRESS,READY,DONE&sinceMinutes=1440').then(r=>r.json());
-  document.getElementById('list').innerHTML = data.map(o=>`<div>${o.id} - ${o.status} - ${o.totalAmount}€ <button onclick="del('${o.id}')">elimina</button></div>`).join('');
+  document.getElementById('list').innerHTML = data.map(o=>`
+    <div class="item">
+      <div>${o.id} • ${o.status} • <b>${o.totalAmount}€</b></div>
+      <button class="btn" onclick="del('${o.id}')">elimina</button>
+    </div>
+  `).join('');
+
 }
 async function delOrder(id){ await fetch('/deleteordine/'+encodeURIComponent(id),{method:'DELETE'}); load(); }
 window.del = delOrder;

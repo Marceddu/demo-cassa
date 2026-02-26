@@ -1,10 +1,35 @@
 <!doctype html>
-<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Kitchen</title></head>
+
+<html lang="it">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kitchen</title>
+  <style>
+    :root{--bg:#0b1220;--card:#121c32;--txt:#eef4ff;--muted:#9caed8;--line:#28406d;--accent:#60a5fa}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,sans-serif}
+    .wrap{max-width:1100px;margin:20px auto;padding:0 16px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+    h1{margin:0 0 12px} h2{margin:0 0 8px;font-size:1rem;color:var(--accent)}
+    .orders{margin-top:12px;display:grid;gap:10px}
+    .order{border:1px solid var(--line);border-radius:12px;padding:10px;background:#0f172a}
+    .muted{color:var(--muted)}
+    .chip{display:inline-block;padding:4px 10px;border-radius:999px;background:#1e293b;border:1px solid #334155;font-size:.85rem;margin-right:8px}
+  </style>
+</head>
 <body>
-<h1>Kitchen Dashboard</h1>
-<div id="totals"></div>
-<div id="stats"></div>
-<div id="orders"></div>
+<div class="wrap">
+  <h1>Kitchen Dashboard</h1>
+  <div class="row">
+    <div class="card"><h2>Ordini per stato</h2><div id="totals"></div></div>
+    <div class="card"><h2>Storico cumulato</h2><div id="stats"></div></div>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <h2>Ordini</h2>
+    <div id="orders" class="orders"></div>
+  </div>
+</div>
+
 <script>
 async function load(){
   const [tot, ord, st] = await Promise.all([
@@ -12,9 +37,22 @@ async function load(){
     fetch('/getordini?status=NEW,IN_PROGRESS,READY,DONE&sinceMinutes=1440').then(r=>r.json()),
     fetch('/admin/counters').then(r=>r.json())
   ]);
-  document.getElementById('totals').textContent = 'Ordini per stato: '+JSON.stringify(tot);
-  document.getElementById('stats').textContent = 'Storico cumulato: '+JSON.stringify(st);
-  document.getElementById('orders').innerHTML = ord.map(o=>`<div><b>${o.status}</b> Tavolo ${o.tableNo||'-'} Totale ${o.totalAmount} € - ${(o.items||[]).map(i=>`${i.name} x${i.qty} (${i.lineTotal}€)`).join(', ')}</div>`).join('');
+
+
+  document.getElementById('totals').innerHTML = Object.entries(tot).map(([k,v])=>`<span class="chip">${k}: <b>${v}</b></span>`).join('');
+  document.getElementById('stats').innerHTML = `
+    <div class="muted">Ordini totali: <b>${st.totalOrders}</b></div>
+    <div class="muted">Piatti totali: <b>${st.totalDishes}</b></div>
+    <div class="muted">Incasso totale: <b>${st.totalRevenue} €</b></div>
+  `;
+
+  document.getElementById('orders').innerHTML = ord.map(o=>`
+    <div class="order">
+      <div><span class="chip">${o.status}</span> Tavolo <b>${o.tableNo||'-'}</b> • Totale <b>${o.totalAmount} €</b></div>
+      <div class="muted" style="margin-top:6px">${(o.items||[]).map(i=>`${i.name} x${i.qty} (${i.lineTotal}€)`).join(' • ')}</div>
+    </div>
+  `).join('');
+
 }
 setInterval(load,3000); load();
 </script>
