@@ -80,7 +80,6 @@ async function removeItem(orderId, itemName){
 
   await load();
 }
-
 function renderOrders(ord){
   const ordersEl = document.getElementById('orders');
   ordersEl.innerHTML = ord.map(o=>`
