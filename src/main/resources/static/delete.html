@@ -1,4 +1,5 @@
 <!doctype html>
+
 <html lang="it">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Elimina Ordini</title>
@@ -25,6 +26,7 @@ async function load(){
       <button class="btn" onclick="del('${o.id}')">elimina</button>
     </div>
   `).join('');
+
 }
 async function delOrder(id){ await fetch('/deleteordine/'+encodeURIComponent(id),{method:'DELETE'}); load(); }
 window.del = delOrder;
