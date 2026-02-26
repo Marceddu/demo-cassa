@@ -1,94 +1,71 @@
 package com.example.demo.controller;
 
+import com.example.demo.dto.DishDto;
+import com.example.demo.dto.OrderRequestDto;
+import com.example.demo.dto.OrderResponseDto;
+import com.example.demo.dto.StatsSummaryDto;
+import com.example.demo.mapper.OrderMapper;
+import com.example.demo.model.Dish;
+import com.example.demo.model.Order;
+import com.example.demo.model.OrderStatus;
+import com.example.demo.service.DishService;
+import com.example.demo.service.OrderService;
+import com.example.demo.service.StatsService;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-
-import com.example.demo.dto.OrderRequestDto;
-import com.example.demo.dto.OrderResponseDto;
-import com.example.demo.mapper.OrderMapper;
-import com.example.demo.model.Order;
-import com.example.demo.model.OrderStatus;
-import com.example.demo.service.OrderService;
-
 @RestController
 @CrossOrigin
 public class SimpleOrderDtoController {
 
-    private final OrderService service;
-    
-    private Map<String, Integer> contatori = new HashMap<String, Integer>();
+    private final OrderService orderService;
+    private final DishService dishService;
+    private final StatsService statsService;
 
-    public SimpleOrderDtoController(OrderService service) {
-        this.service = service;
+    public SimpleOrderDtoController(OrderService orderService, DishService dishService, StatsService statsService) {
+        this.orderService = orderService;
+        this.dishService = dishService;
+        this.statsService = statsService;
     }
 
-    // -------- GET /getordini?status=NEW,READY&sinceMinutes=240
     @GetMapping("/getordini")
     public List<OrderResponseDto> getOrdini(@RequestParam(required = false) String status,
                                             @RequestParam(required = false) Integer sinceMinutes) {
-
         List<OrderStatus> statuses = (status == null || status.isBlank())
                 ? Arrays.asList(OrderStatus.values())
-                : Arrays.stream(status.split(","))
-                        .map(String::trim).map(String::toUpperCase)
-                        .map(OrderStatus::valueOf)
-                        .collect(Collectors.toList());
+                : Arrays.stream(status.split(",")).map(String::trim).map(String::toUpperCase).map(OrderStatus::valueOf).toList();
 
         List<Order> list = (sinceMinutes != null)
-                ? service.listByStatusesSince(statuses, OffsetDateTime.now().minusMinutes(sinceMinutes))
-                : service.listByStatuses(statuses);
+                ? orderService.listByStatusesSince(statuses, OffsetDateTime.now().minusMinutes(sinceMinutes))
+                : orderService.listByStatuses(statuses);
 
         return list.stream().map(OrderMapper::toResponse).collect(Collectors.toList());
     }
 
-    // -------- POST /setordine  (create/update)
     @PostMapping("/setordine")
     public ResponseEntity<?> setOrdine(@RequestBody OrderRequestDto dto) {
-    	
-    	dto.items.stream().forEach(a -> {
-    		Integer conto = contatori.get(a.name);
-    		if (conto == null || conto == 0) {
-    			conto = 1;
-    		} else {
-    			conto+=a.qty;
-    		}
-    		contatori.put(a.name, conto);
-    	});
         if (dto.id != null && !dto.id.isBlank()) {
-            // UPDATE
-            return service.updateFromDto(dto)
+            return orderService.updateFromDto(dto)
                     .map(o -> ResponseEntity.ok(OrderMapper.toResponse(o)))
                     .orElseGet(() -> ResponseEntity.notFound().build());
-        } else {
-            // CREATE
-            Order saved = service.createFromDto(dto);
-            System.out.println(contatori);
-            return ResponseEntity.ok(OrderMapper.toResponse(saved));
         }
+        Order saved = orderService.createFromDto(dto);
+        return ResponseEntity.ok(OrderMapper.toResponse(saved));
     }
 
-    // -------- GET /gettotali
     @GetMapping("/gettotali")
     public Map<String, Object> getTotali() {
-        Map<OrderStatus, Long> totals = service.totalsByStatus();
+        Map<OrderStatus, Long> totals = orderService.totalsByStatus();
         Map<String, Object> resp = new LinkedHashMap<>();
-
         long total = 0;
         for (OrderStatus s : OrderStatus.values()) {
             long n = totals.getOrDefault(s, 0L);
@@ -99,20 +76,63 @@ public class SimpleOrderDtoController {
         return resp;
     }
 
-    // -------- DELETE /deleteordine/{id}
     @DeleteMapping("/deleteordine/{id}")
     public ResponseEntity<?> deleteOrdine(@PathVariable String id) {
-        service.delete(id);
+        orderService.delete(id);
         return ResponseEntity.noContent().build();
     }
-    
+
     @GetMapping("/getPiatti")
-    public List<String> getPiatti() {
-    	
-        List<String> resp = new ArrayList<String>();
-        
-        resp.addAll(Arrays.asList("PRUPPEDDA", "PANE VRATTAU", "COMPLETO", "PANE VRATTAU SENZA LATTOSIO", "COMPLETO SENZA LATTOSIO"));
-        
-        return resp;
+    public List<DishDto> getPiatti() {
+        return dishService.listActive().stream().map(this::toDishDto).toList();
+    }
+
+    @GetMapping("/admin/piatti")
+    public List<DishDto> getPiattiAdmin() {
+        return dishService.listAll().stream().map(this::toDishDto).toList();
+    }
+
+    @PostMapping("/admin/piatti")
+    public DishDto createPiatto(@RequestBody DishDto dto) {
+        return toDishDto(dishService.create(dto));
+    }
+
+    @PutMapping("/admin/piatti/{id}")
+    public DishDto updatePiatto(@PathVariable Long id, @RequestBody DishDto dto) {
+        return toDishDto(dishService.update(id, dto));
+    }
+
+    @DeleteMapping("/admin/piatti/{id}")
+    public ResponseEntity<?> deletePiatto(@PathVariable Long id) {
+        dishService.delete(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/admin/counters")
+    public StatsSummaryDto getCounters() {
+        return statsService.latestOrCurrent();
+    }
+
+    @PostMapping("/admin/counters/refresh")
+    public StatsSummaryDto refreshCounters() {
+        return statsService.refreshSnapshot();
+    }
+
+    @GetMapping("/admin/counters/export")
+    public ResponseEntity<String> exportCounters() {
+        String txt = statsService.exportAsTxt();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=counters.txt")
+                .contentType(MediaType.TEXT_PLAIN)
+                .body(txt);
+    }
+
+    private DishDto toDishDto(Dish dish) {
+        DishDto dto = new DishDto();
+        dto.id = dish.getId();
+        dto.name = dish.getName();
+        dto.price = dish.getPrice();
+        dto.active = dish.isActive();
+        return dto;
     }
 }
