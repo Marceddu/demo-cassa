@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="it">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -65,6 +66,7 @@
   </div>
 </div>
 
+
 <script>
 const menuEl = document.getElementById('menu');
 let dishes = [];
@@ -86,6 +88,7 @@ function recalc(){
 async function loadMenu(){
   const res = await fetch('/getPiatti');
   dishes = await res.json();
+
   menuEl.innerHTML = dishes.map(d => `
     <div class="dish">
       <div><strong>${d.name}</strong></div>
@@ -94,6 +97,7 @@ async function loadMenu(){
     <input id="q${d.id}" type="number" min="0" value="0">
     <div class="dish"><span id="l${d.id}">0.00</span> €</div>
   `).join('');
+
   dishes.forEach(d => document.getElementById('q'+d.id).addEventListener('input', recalc));
   document.getElementById('splitN').addEventListener('input', recalc);
   recalc();
@@ -119,6 +123,7 @@ function resetForm(){
 
 document.getElementById('save').addEventListener('click', saveOrder);
 document.getElementById('reset').addEventListener('click', resetForm);
+
 loadMenu();
 </script>
 </body>

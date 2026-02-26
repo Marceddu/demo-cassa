@@ -1,4 +1,5 @@
 <!doctype html>
+
 <html lang="it">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -28,6 +29,7 @@
     <div id="orders" class="orders"></div>
   </div>
 </div>
+
 <script>
 async function load(){
   const [tot, ord, st] = await Promise.all([
@@ -35,6 +37,7 @@ async function load(){
     fetch('/getordini?status=NEW,IN_PROGRESS,READY,DONE&sinceMinutes=1440').then(r=>r.json()),
     fetch('/admin/counters').then(r=>r.json())
   ]);
+
 
   document.getElementById('totals').innerHTML = Object.entries(tot).map(([k,v])=>`<span class="chip">${k}: <b>${v}</b></span>`).join('');
   document.getElementById('stats').innerHTML = `
@@ -49,6 +52,7 @@ async function load(){
       <div class="muted" style="margin-top:6px">${(o.items||[]).map(i=>`${i.name} x${i.qty} (${i.lineTotal}€)`).join(' • ')}</div>
     </div>
   `).join('');
+
 }
 setInterval(load,3000); load();
 </script>
