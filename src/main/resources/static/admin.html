@@ -56,6 +56,9 @@ async function loadCounters(){
 }
 async function addDish(){
   await fetch('/admin/piatti',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById('name').value,price:Number(document.getElementById('price').value),active:true})});
+
+  document.getElementById('name').value=''; document.getElementById('price').value='';
+
   loadDishes();
 }
 async function toggle(id,active){ await fetch('/admin/piatti/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({active})}); loadDishes(); }

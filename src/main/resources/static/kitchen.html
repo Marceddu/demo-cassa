@@ -5,7 +5,9 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Kitchen</title>
   <style>
-    :root{--bg:#0b1220;--card:#121c32;--txt:#eef4ff;--muted:#9caed8;--line:#28406d;--accent:#60a5fa}
+
+    :root{--bg:#0b1220;--card:#121c32;--txt:#eef4ff;--muted:#9caed8;--line:#28406d;--accent:#60a5fa;--danger:#ef4444}
+
     *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,sans-serif}
     .wrap{max-width:1100px;margin:20px auto;padding:0 16px}
     .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -15,6 +17,11 @@
     .order{border:1px solid var(--line);border-radius:12px;padding:10px;background:#0f172a}
     .muted{color:var(--muted)}
     .chip{display:inline-block;padding:4px 10px;border-radius:999px;background:#1e293b;border:1px solid #334155;font-size:.85rem;margin-right:8px}
+    .items{margin-top:8px;display:grid;gap:6px}
+    .item{display:flex;justify-content:space-between;align-items:center;gap:8px;border:1px solid #2b4169;border-radius:10px;padding:8px}
+    .btn{border:none;border-radius:8px;padding:6px 10px;font-weight:700;cursor:pointer}
+    .btn-danger{background:var(--danger);color:#fff}
+
   </style>
 </head>
 <body>
@@ -31,12 +38,60 @@
 </div>
 
 <script>
+let dishesByName = {};
+let ordersCache = [];
+
+async function loadDishes(){
+  const dishes = await fetch('/getPiatti').then(r=>r.json());
+  dishesByName = Object.fromEntries(dishes.map(d => [String(d.name).toLowerCase(), d]));
+}
+
+async function removeItem(orderId, itemName){
+  const order = ordersCache.find(o => o.id === orderId);
+  if (!order) return;
+
+  const filtered = (order.items || []).filter(i => i.name !== itemName);
+  if (filtered.length === (order.items || []).length) return;
+
+  if (!confirm(`Rimuovere "${itemName}" dall'ordine?`)) return;
+
+  const itemsPayload = filtered.map((it, pos) => {
+    const dish = dishesByName[String(it.name || '').toLowerCase()];
+    if (!dish) throw new Error(`Piatto non trovato nel menu: ${it.name}`);
+    return { dishId: dish.id, qty: Number(it.qty || 1), position: pos, itemNote: it.itemNote || null };
+  });
+
+  if (itemsPayload.length === 0) {
+    await fetch('/deleteordine/' + encodeURIComponent(orderId), { method: 'DELETE' });
+  } else {
+    const payload = {
+      id: order.id,
+      tableNo: order.tableNo,
+      notes: order.notes,
+      status: order.status,
+      items: itemsPayload
+    };
+    await fetch('/setordine', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+  }
+
+  await load();
+}
+
 async function load(){
+  if (!Object.keys(dishesByName).length) await loadDishes();
+
+
   const [tot, ord, st] = await Promise.all([
     fetch('/gettotali').then(r=>r.json()),
     fetch('/getordini?status=NEW,IN_PROGRESS,READY,DONE&sinceMinutes=1440').then(r=>r.json()),
     fetch('/admin/counters').then(r=>r.json())
   ]);
+p
+  ordersCache = ord;
 
 
   document.getElementById('totals').innerHTML = Object.entries(tot).map(([k,v])=>`<span class="chip">${k}: <b>${v}</b></span>`).join('');
@@ -49,11 +104,24 @@ async function load(){
   document.getElementById('orders').innerHTML = ord.map(o=>`
     <div class="order">
       <div><span class="chip">${o.status}</span> Tavolo <b>${o.tableNo||'-'}</b> • Totale <b>${o.totalAmount} €</b></div>
-      <div class="muted" style="margin-top:6px">${(o.items||[]).map(i=>`${i.name} x${i.qty} (${i.lineTotal}€)`).join(' • ')}</div>
+
+      <div class="muted" style="margin-top:6px">Note ordine: <b>${o.notes ? o.notes : '—'}</b></div>
+      <div class="items">
+        ${(o.items||[]).map(i=>`
+          <div class="item">
+            <div>
+              <div><b>${i.name}</b> x${i.qty} (${i.lineTotal}€)</div>
+              <div class="muted" style="font-size:.9rem">Nota riga: ${i.itemNote ? i.itemNote : '—'}</div>
+            </div>
+            <button class="btn btn-danger" onclick="removeItem('${o.id}','${String(i.name).replace(/'/g, "&#39;")}')">Elimina piatto</button>
+          </div>
+        `).join('')}
+      </div>
     </div>
   `).join('');
-
 }
+window.removeItem = removeItem;
+
 setInterval(load,3000); load();
 </script>
 </body></html>
