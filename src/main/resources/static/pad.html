@@ -1,184 +1,125 @@
 <!doctype html>
 <html lang="it">
 <head>
-  <meta charset="utf-8" />
-  <title>Inserisci Ordine</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pad Ordini</title>
   <style>
     :root{
-      --bg:#000; --fg:#fff; --btn-text:#000; --btn-bg:#fff;
-      --ok-bg:#16a34a; --ok-text:#000; --danger-bg:#ef4444; --danger-text:#fff; --pill-radius:28px;
+      --bg:#0b1220; --card:#111a2e; --card-2:#19233c; --text:#eaf0ff; --muted:#9fb0d9;
+      --primary:#5b8cff; --primary-2:#7aa2ff; --ok:#22c55e; --danger:#ef4444; --border:#2a3b63;
+      --radius:14px;
     }
     *{box-sizing:border-box}
-    html,body{height:100%}
-    body{margin:0;padding:18px;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
-    h1{margin:0 0 12px;font-size:20px;font-weight:600}
-    .row{display:flex;align-items:center;gap:12px;margin-bottom:16px}
-    .label{font-size:16px;opacity:.9}
-    .ord-num{width:140px;background:#111;color:var(--fg);border:1px solid #333;padding:10px 12px;border-radius:12px;font-size:18px}
-    .grid{display:grid;gap:16px;grid-template-columns:repeat(3,1fr)}
-    @media(max-width:860px){.grid{grid-template-columns:repeat(2,1fr)}}
-    @media(max-width:560px){.grid{grid-template-columns:1fr}}
-    .dish-btn{background:var(--btn-bg);color:var(--btn-text);border:none;border-radius:var(--pill-radius);padding:22px 18px;font-size:18px;font-weight:600;cursor:pointer;box-shadow:0 0 0 2px #fff inset;transition:transform .05s;text-transform:lowercase}
-    .dish-btn:active{transform:scale(.98)}
-    .actions{margin-top:40px;display:flex;flex-direction:column;gap:12px}
-    .btn-lg{width:100%;border:none;border-radius:40px;padding:22px;font-size:18px;font-weight:700;cursor:pointer}
-    .btn-create{background:var(--ok-bg);color:var(--ok-text)}
-    .btn-cancel{background:var(--danger-bg);color:var(--danger-text)}
-    .pill{display:inline-flex;align-items:center;gap:10px;background:#111;border:1px solid #333;color:var(--fg);padding:8px 12px;border-radius:999px;font-size:14px}
-    .sel-wrap{margin-top:18px;display:flex;flex-wrap:wrap;gap:10px}
+    body{margin:0;background:linear-gradient(180deg,#0b1220,#0a1020 50%,#0b1220);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+    .wrap{max-width:980px;margin:28px auto;padding:0 16px}
+    .card{background:rgba(17,26,46,.95);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.28)}
+    h1{margin:0 0 14px;font-size:1.45rem}
+    .grid{display:grid;grid-template-columns:1fr 110px 120px;gap:10px;align-items:center}
+    .dish{padding:10px;border:1px solid #24365b;border-radius:10px;background:var(--card-2)}
+    .muted{color:var(--muted)}
+    input{width:100%;padding:10px;border-radius:10px;border:1px solid #304674;background:#0f172a;color:var(--text)}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+    .summary{display:flex;flex-wrap:wrap;gap:12px;margin-top:14px}
+    .pill{background:#0f172a;border:1px solid #29416f;border-radius:999px;padding:10px 14px;font-weight:600}
+    .btn{border:none;padding:10px 14px;border-radius:12px;font-weight:700;cursor:pointer;transition:.18s transform,.18s opacity,.18s filter}
+    .btn:hover{transform:translateY(-1px);filter:brightness(1.05)}
+    .btn:active{transform:translateY(0)}
+    .btn-primary{background:linear-gradient(135deg,var(--primary),var(--primary-2));color:#fff}
+    .btn-ghost{background:transparent;color:var(--text);border:1px solid #38548a}
+    pre{white-space:pre-wrap;background:#0f172a;border:1px solid #29416f;border-radius:12px;padding:10px;margin-top:12px;color:#9fe870}
   </style>
 </head>
 <body>
-  <h1>Inserisci Ordine</h1>
+<div class="wrap">
+  <div class="card">
+    <h1>Nuovo ordine</h1>
+    <div id="menu" class="grid"></div>
 
-  <div class="row">
-    <div class="label">ordine numero:</div>
-    <input id="ordineNumero" class="ord-num" type="text" readonly />
-    <span id="selCounter" class="pill" title="Piatti selezionati">0 selezionati</span>
-    <span id="ultimoNPill" class="pill" title="Ultimo numero piatti salvato" style="display:none"></span>
+    <div class="summary">
+      <div class="pill">Totale: <strong id="tot">0.00</strong> €</div>
+      <div class="pill">Quota per persona: <strong id="split">0.00</strong> €</div>
+    </div>
+
+    <div class="row">
+      <label>Dividi per N
+        <input id="splitN" type="number" min="1" value="1">
+      </label>
+      <label>Tavolo
+        <input id="tableNo" placeholder="es. 12">
+      </label>
+    </div>
+
+    <div class="row">
+      <label style="grid-column:1/-1">Note
+        <input id="notes" placeholder="Note ordine">
+      </label>
+    </div>
+
+    <div style="margin-top:14px;display:flex;gap:8px">
+      <button class="btn btn-primary" id="save">Invia ordine</button>
+      <button class="btn btn-ghost" id="reset">Reset</button>
+    </div>
+
+    <pre id="result"></pre>
   </div>
+</div>
 
-  <div id="grid" class="grid"></div>
-  <div class="sel-wrap" id="selected"></div>
+<script>
+const menuEl = document.getElementById('menu');
+let dishes = [];
 
-  <div class="actions">
-    <button id="createBtn" class="btn-lg btn-create">crea ordine</button>
-    <button id="cancelBtn" class="btn-lg btn-cancel">annulla ordine</button>
-  </div>
+function money(v){ return Number(v||0).toFixed(2); }
+function recalc(){
+  let total=0;
+  dishes.forEach(d=>{
+    const q = Number(document.getElementById('q'+d.id).value||0);
+    const line = q*Number(d.price);
+    document.getElementById('l'+d.id).textContent = money(line);
+    total += line;
+  });
+  document.getElementById('tot').textContent = money(total);
+  const n = Math.max(1, Number(document.getElementById('splitN').value||1));
+  document.getElementById('split').textContent = money(total/n);
+}
 
-  <script>
-    // --- stato ---
-    const selected = new Map(); // nome -> qty
-    const grid = document.getElementById('grid');
-    const selWrap = document.getElementById('selected');
-    const selCounter = document.getElementById('selCounter');
-    const ordineNumeroEl = document.getElementById('ordineNumero');
-    const ultimoNPill = document.getElementById('ultimoNPill');
+async function loadMenu(){
+  const res = await fetch('/getPiatti');
+  dishes = await res.json();
+  menuEl.innerHTML = dishes.map(d => `
+    <div class="dish">
+      <div><strong>${d.name}</strong></div>
+      <div class="muted">${money(d.price)} €</div>
+    </div>
+    <input id="q${d.id}" type="number" min="0" value="0">
+    <div class="dish"><span id="l${d.id}">0.00</span> €</div>
+  `).join('');
+  dishes.forEach(d => document.getElementById('q'+d.id).addEventListener('input', recalc));
+  document.getElementById('splitN').addEventListener('input', recalc);
+  recalc();
+}
 
-    // --- ordine numero incrementale (FE, poi BE) ---
-    function loadOrdineNumero(){
-      let n = parseInt(localStorage.getItem('ordineNumero') || '0', 10);
-      if (isNaN(n) || n < 1) n = 1;
-      ordineNumeroEl.value = n;
-    }
-    function incrementaOrdineNumero(){
-      let n = parseInt(ordineNumeroEl.value || '1', 10);
-      if (isNaN(n) || n < 1) n = 1;
-      const next = n + 1;
-      localStorage.setItem('ordineNumero', String(next));
-      ordineNumeroEl.value = next;
-    }
+async function saveOrder(){
+  const items = dishes.map((d,pos)=>({dishId:d.id, qty:Number(document.getElementById('q'+d.id).value||0), position:pos})).filter(i=>i.qty>0);
+  if(!items.length){ alert('Seleziona almeno un piatto'); return; }
+  const payload = { tableNo: document.getElementById('tableNo').value, notes: document.getElementById('notes').value, status:'NEW', items };
+  const res = await fetch('/setordine', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+  const data = await res.json();
+  document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+}
 
-    // --- mostra ultimo "numero piatti" salvato (persistito) ---
-    function showUltimoNumeroPiatti(){
-      const v = localStorage.getItem('ultimoNumeroPiatti');
-      if (v){
-        ultimoNPill.style.display = 'inline-flex';
-        ultimoNPill.textContent = `ultimo numero piatti: ${v}`;
-      } else {
-        ultimoNPill.style.display = 'none';
-      }
-    }
+function resetForm(){
+  dishes.forEach(d => { document.getElementById('q'+d.id).value = 0; });
+  document.getElementById('splitN').value = 1;
+  document.getElementById('tableNo').value = '';
+  document.getElementById('notes').value = '';
+  document.getElementById('result').textContent = '';
+  recalc();
+}
 
-    // --- UI selezione ---
-    function renderSelected(){
-      selWrap.innerHTML = '';
-      let total = 0;
-      for (const [name, qty] of selected.entries()){
-        total += qty;
-        const pill = document.createElement('span');
-        pill.className = 'pill';
-        pill.innerHTML = `
-          <strong>${name.toLowerCase()}</strong>
-          <span>× ${qty}</span>
-          <button style="background:#222;color:#fff;border:none;border-radius:999px;padding:4px 8px;cursor:pointer"
-            aria-label="rimuovi" onclick="removeOne('${cssEscape(name)}')">-1</button>
-        `;
-        selWrap.appendChild(pill);
-      }
-      selCounter.textContent = `${total} selezionati`;
-    }
-
-    function cssEscape(s){ return s.replace(/'/g,"\\'"); }
-    function addDish(name){ selected.set(name,(selected.get(name)||0)+1); renderSelected(); }
-    window.removeOne = function(name){
-      const cur = selected.get(name)||0;
-      if (cur<=1) selected.delete(name); else selected.set(name, cur-1);
-      renderSelected();
-    }
-    function clearSelection(){ selected.clear(); renderSelected(); }
-
-    function makeDishButton(name){
-      const btn = document.createElement('button');
-      btn.className = 'dish-btn';
-      btn.textContent = name.toLowerCase();
-      btn.onclick = () => addDish(name);
-      return btn;
-    }
-
-    // --- fetch piatti ---
-    async function loadPiatti(){
-      try{
-        const res = await fetch('/getPiatti');
-        if(!res.ok) throw new Error('HTTP '+res.status);
-        const data = await res.json();
-        grid.innerHTML = '';
-        (data||[]).forEach(p => grid.appendChild(makeDishButton(String(p))));
-      }catch(e){
-        alert('Errore caricamento piatti: '+e.message);
-        grid.innerHTML = '';
-      }
-    }
-
-    // --- invio ordine ---
-    async function creaOrdine(){
-      if (selected.size===0){ alert('Seleziona almeno un piatto'); return; }
-
-      const numOrdine = parseInt(ordineNumeroEl.value || '1', 10);
-      const totalePiatti = Array.from(selected.values()).reduce((a,b)=>a+b,0);
-
-      // persistiamo "numero piatti" per portarcelo in giro
-      localStorage.setItem('ultimoNumeroPiatti', String(totalePiatti));
-      showUltimoNumeroPiatti();
-
-      const items = Array.from(selected.entries()).map(([name, qty], i)=>({
-        name, qty, position:i
-      }));
-
-      // inviamo il "numero piatti" al BE **al posto di tableNo**
-      const body = {
-        tableNo: String(totalePiatti),      // <- qui il numero piatti
-        notes: `Ordine #${numOrdine}`,      // etichetta con numero ordine
-        status: "NEW",
-        items
-      };
-
-      const res = await fetch('/setordine', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify(body)
-      });
-      if(!res.ok){ alert('Errore creazione ordine'); return; }
-
-      clearSelection();
-      incrementaOrdineNumero();
-      alert(`Ordine creato • numero piatti: ${totalePiatti}`);
-    }
-
-    function annullaOrdine(){
-      clearSelection();
-      // il numero ordine non cambia; "numero piatti" non viene salvato
-    }
-
-    // --- bind ---
-    document.getElementById('createBtn').onclick = creaOrdine;
-    document.getElementById('cancelBtn').onclick = annullaOrdine;
-
-    // --- init ---
-    loadOrdineNumero();
-    showUltimoNumeroPiatti();
-    renderSelected();
-    loadPiatti();
-  </script>
+document.getElementById('save').addEventListener('click', saveOrder);
+document.getElementById('reset').addEventListener('click', resetForm);
+loadMenu();
+</script>
 </body>
 </html>

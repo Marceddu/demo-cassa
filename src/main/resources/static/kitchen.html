@@ -1,183 +1,55 @@
 <!doctype html>
 <html lang="it">
 <head>
-  <meta charset="utf-8" />
-  <title>Cucina • Totali & Ordini</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kitchen</title>
   <style>
-    :root{
-      --bg:#000; --fg:#fff; --pill-border:#fff;
-      --card:#101010; --border:#2a2a2a; --danger:#ef4444; --dangerText:#fff;
-    }
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
-    .wrap{height:100%;display:flex;flex-direction:column}
-    /* HEADER STICKY (rimane fissato in alto) */
-    header{
-      position:sticky; top:0; z-index:5;
-      background:linear-gradient(#000 0%, #000 100%);
-      padding:14px 14px 10px;
-      border-bottom:1px solid #181818;
-    }
-    h1{margin:0 0 6px;font-size:20px}
-    .note{opacity:.9;margin:0 0 12px;font-size:14px}
-    .totals{
-      display:grid; gap:12px; grid-template-columns:repeat(3,1fr);
-    }
-    @media(max-width:1100px){.totals{grid-template-columns:repeat(2,1fr)}}
-    @media(max-width:740px){.totals{grid-template-columns:1fr}}
-    .pill{
-      background:transparent; color:var(--fg);
-      border-radius:28px; padding:14px 18px; font-weight:700; font-size:18px;
-      box-shadow:0 0 0 2px var(--pill-border) inset; text-align:center;
-    }
-
-    /* MAIN: solo gli ordini scorrono */
-    main{flex:1; min-height:0; display:flex; flex-direction:column; padding:14px}
-    .col-title{font-weight:700; font-size:18px; margin:0 0 10px}
-    .list{flex:1; min-height:0; overflow:auto; display:grid; gap:10px}
-    .card{
-      background:var(--card); border:1px solid var(--border); border-radius:12px;
-      padding:10px 12px;
-    }
-    .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
-    .grow{flex:1}
-    .small{opacity:.75; font-size:12px}
-    .btn-del{
-      background:var(--danger); color:var(--dangerText);
-      border:none; border-radius:10px; padding:8px 12px; font-weight:700; cursor:pointer;
-    }
+    :root{--bg:#0b1220;--card:#121c32;--txt:#eef4ff;--muted:#9caed8;--line:#28406d;--accent:#60a5fa}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,sans-serif}
+    .wrap{max-width:1100px;margin:20px auto;padding:0 16px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+    h1{margin:0 0 12px} h2{margin:0 0 8px;font-size:1rem;color:var(--accent)}
+    .orders{margin-top:12px;display:grid;gap:10px}
+    .order{border:1px solid var(--line);border-radius:12px;padding:10px;background:#0f172a}
+    .muted{color:var(--muted)}
+    .chip{display:inline-block;padding:4px 10px;border-radius:999px;background:#1e293b;border:1px solid #334155;font-size:.85rem;margin-right:8px}
   </style>
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <h1>Riepilogo Cucina</h1>
-    <p class="note">i completo sono già contati all'interno dei pane vrattau e pruppedda</p>
-    <div id="totals" class="totals"></div>
-  </header>
-
-  <main>
-    <div class="col-title">ORDINI</div>
-    <div id="ordersList" class="list"></div>
-  </main>
+  <h1>Kitchen Dashboard</h1>
+  <div class="row">
+    <div class="card"><h2>Ordini per stato</h2><div id="totals"></div></div>
+    <div class="card"><h2>Storico cumulato</h2><div id="stats"></div></div>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <h2>Ordini</h2>
+    <div id="orders" class="orders"></div>
+  </div>
 </div>
-
 <script>
-  // Se servi su porta diversa (es. 8081), imposta:
-  // const API = `${location.protocol}//${location.hostname}:8081`;
-  const API = ''; // vuoto = path relativi
-  function api(p){ return (API||'')+p; }
-  function N(s){ return String(s||'').trim().toUpperCase(); }
+async function load(){
+  const [tot, ord, st] = await Promise.all([
+    fetch('/gettotali').then(r=>r.json()),
+    fetch('/getordini?status=NEW,IN_PROGRESS,READY,DONE&sinceMinutes=1440').then(r=>r.json()),
+    fetch('/admin/counters').then(r=>r.json())
+  ]);
 
-  // Mappa “completi” -> piatti target da incrementare
-  const COMPLETO_MAP = {
-    "COMPLETO": ["PRUPPEDDA","PANE VRATTAU"],
-    "COMPLETO SENZA LATTOSIO": ["PRUPPEDDA","PANE VRATTAU SENZA LATTOSIO"]
-  };
+  document.getElementById('totals').innerHTML = Object.entries(tot).map(([k,v])=>`<span class="chip">${k}: <b>${v}</b></span>`).join('');
+  document.getElementById('stats').innerHTML = `
+    <div class="muted">Ordini totali: <b>${st.totalOrders}</b></div>
+    <div class="muted">Piatti totali: <b>${st.totalDishes}</b></div>
+    <div class="muted">Incasso totale: <b>${st.totalRevenue} €</b></div>
+  `;
 
-  function parseOrderNumber(o){
-    if (o.orderNumber != null) return Number(o.orderNumber);
-    if (o.notes){
-      const m = String(o.notes).match(/#\s*(\d+)/i);
-      if (m) return Number(m[1]);
-    }
-    return Date.parse(o.createdAt || 0);
-  }
-
-  function renderTotals(labels, totals, compositeCounts){
-    const el = document.getElementById('totals');
-    el.innerHTML = '';
-    labels.forEach(label => {
-      const key = N(label);
-      // Se è un "completo", mostra SOLO il proprio conteggio reale (isolato),
-      // altrimenti mostra il totale aggregato (inclusi contributi da completi).
-      const val = (COMPLETO_MAP[key] ? (compositeCounts.get(key) || 0) : (totals.get(key) || 0));
-      const div = document.createElement('div');
-      div.className = 'pill';
-      div.textContent = `${label.toLowerCase()} • ${val}`;
-      el.appendChild(div);
-    });
-  }
-
-  function renderOrders(orders){
-    const list = document.getElementById('ordersList');
-    // Ordina globalmente per numero ordine (fallback createdAt)
-    orders.sort((a,b) => parseOrderNumber(a) - parseOrderNumber(b));
-    list.innerHTML = '';
-    orders.forEach(o => {
-      const n = parseOrderNumber(o);
-      const card = document.createElement('div');
-      card.className = 'card';
-      card.innerHTML = `
-        <div class="row">
-          <div><strong>ordine ${isNaN(n)?'-':n}</strong></div>
-          <div class="small">stato: ${o.status}</div>
-          <div class="grow"></div>
-          <button class="btn-del" onclick="delOrder('${o.id}')">elimina</button>
-        </div>
-        <div class="small">${(o.items||[]).map(it => `${it.name} × ${it.qty||1}`).join(' • ')}</div>
-      `;
-      list.appendChild(card);
-    });
-  }
-
-  async function loadAll(){
-    // 1) Etichette piatti
-    const piattiRes = await fetch(api('/getPiatti'));
-    const labels = await piattiRes.json();
-
-    // 2) Ordini attivi (adatta lo stato se vuoi includere DONE)
-    const ordRes = await fetch(api('/getordini?status=NEW,IN_PROGRESS,READY&sinceMinutes=1440'));
-    const orders = await ordRes.json();
-
-    // 3) Totali:
-    //    - totals: conteggio “aggregato” per piatti “base”
-    //    - compositeCounts: conteggio reale dei piatti “completi” (isolati)
-    const keys = labels.map(N);
-    const totals = new Map(keys.map(k => [k, 0]));
-    const compositeCounts = new Map(keys.map(k => [k, 0]));
-
-    orders.forEach(o => {
-      (o.items||[]).forEach(it => {
-        const nameKey = N(it.name);
-        const qty = Number(it.qty) || 1;
-
-        // Se è un "completo": NON contarlo nel suo stesso totale aggregato;
-        // salva solo il conteggio reale per la sua label (isolato)
-        if (COMPLETO_MAP[nameKey]) {
-          compositeCounts.set(nameKey, (compositeCounts.get(nameKey) || 0) + qty);
-
-          // aggiungi la quantità ai target
-          COMPLETO_MAP[nameKey].forEach(t => {
-            const tKey = N(t);
-            if (totals.has(tKey)) {
-              totals.set(tKey, (totals.get(tKey) || 0) + qty);
-            }
-          });
-        } else {
-          // Piatto "base": incrementa il suo totale se presente tra le label
-          if (totals.has(nameKey)) {
-            totals.set(nameKey, (totals.get(nameKey) || 0) + qty);
-          }
-        }
-      });
-    });
-
-    renderTotals(labels, totals, compositeCounts);
-    renderOrders(orders);
-  }
-
-  async function delOrder(id){
-    if(!confirm('Eliminare questo ordine?')) return;
-    const res = await fetch(api(`/deleteordine/${encodeURIComponent(id)}`), { method:'DELETE' });
-    if(!res.ok){ alert('Errore eliminazione'); return; }
-    await loadAll();
-  }
-
-  loadAll();
-  setInterval(loadAll, 3000); // refresh ogni 3s
+  document.getElementById('orders').innerHTML = ord.map(o=>`
+    <div class="order">
+      <div><span class="chip">${o.status}</span> Tavolo <b>${o.tableNo||'-'}</b> • Totale <b>${o.totalAmount} €</b></div>
+      <div class="muted" style="margin-top:6px">${(o.items||[]).map(i=>`${i.name} x${i.qty} (${i.lineTotal}€)`).join(' • ')}</div>
+    </div>
+  `).join('');
+}
+setInterval(load,3000); load();
 </script>
-</body>
-</html>
+</body></html>
