@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Admin Piatti</title></head>
+<body>
+<h1>Admin piatti e contatori</h1>
+<h2>Piatti</h2>
+<div id="dishes"></div>
+<h3>Aggiungi piatto</h3>
+<input id="name" placeholder="nome"><input id="price" type="number" step="0.01" placeholder="prezzo"><button id="add">Aggiungi</button>
+<h2>Contatori</h2>
+<pre id="counters"></pre>
+<button id="refresh">Refresh snapshot</button>
+<a href="/admin/counters/export" target="_blank">Scarica TXT</a>
+<script>
+async function loadDishes(){
+  const dishes = await fetch('/admin/piatti').then(r=>r.json());
+  document.getElementById('dishes').innerHTML = dishes.map(d=>`<div>${d.id} ${d.name} ${d.price}€ active:${d.active} <button onclick="toggle(${d.id},${!d.active})">toggle</button> <button onclick="removeDish(${d.id})">delete</button></div>`).join('');
+}
+async function loadCounters(){
+  const c = await fetch('/admin/counters').then(r=>r.json());
+  document.getElementById('counters').textContent = JSON.stringify(c,null,2);
+}
+async function addDish(){
+  await fetch('/admin/piatti',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById('name').value,price:Number(document.getElementById('price').value),active:true})});
+  loadDishes();
+}
+async function toggle(id,active){ await fetch('/admin/piatti/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({active})}); loadDishes(); }
+async function removeDish(id){ await fetch('/admin/piatti/'+id,{method:'DELETE'}); loadDishes(); }
+window.toggle = toggle; window.removeDish = removeDish;
+document.getElementById('add').onclick = addDish;
+document.getElementById('refresh').onclick = async()=>{ await fetch('/admin/counters/refresh',{method:'POST'}); loadCounters(); };
+loadDishes(); loadCounters();
+</script>
+</body></html>
