@@ -1,6 +1,5 @@
 <!doctype html>
 <html lang="it">
-
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,14 +7,11 @@
   <style>
     :root{
       --bg:#0b1220; --card:#111a2e; --card-2:#19233c; --text:#eaf0ff; --muted:#9fb0d9;
-
       --primary:#5b8cff; --primary-2:#7aa2ff; --danger:#ef4444; --border:#2a3b63;
-
       --radius:14px;
     }
     *{box-sizing:border-box}
     body{margin:0;background:linear-gradient(180deg,#0b1220,#0a1020 50%,#0b1220);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-
     .wrap{max-width:980px;margin:20px auto;padding:0 16px}
     .card{background:rgba(17,26,46,.95);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.28)}
     h1,h2{margin:0 0 14px}
@@ -46,16 +42,12 @@
 <body>
 <div class="wrap">
   <div class="card">
-
     <h1 id="formTitle">Nuovo ordine</h1>
-
     <div id="menu" class="grid"></div>
-
     <div class="summary">
       <div class="pill">Totale: <strong id="tot">0.00</strong> €</div>
       <div class="pill">Quota per persona: <strong id="split">0.00</strong> €</div>
     </div>
-
     <div class="row">
       <label>Dividi per N
         <input id="splitN" type="number" min="1" value="1">
@@ -66,7 +58,6 @@
     </div>
 
     <div class="row">
-
       <label style="grid-column:1/-1">Note ordine (salvate su DB)
         <input id="notes" placeholder="Es. 1 senza lattosio, pane extra...">
       </label>
@@ -76,7 +67,6 @@
       <button class="btn btn-primary" id="save">Invia ordine</button>
       <button class="btn btn-ghost" id="reset">Reset</button>
       <button class="btn btn-danger" id="cancelEdit" style="display:none">Annulla modifica</button>
-
     </div>
 
     <pre id="result"></pre>
@@ -113,7 +103,6 @@ function recalc(){
   let total=0;
   dishes.forEach(d=>{
     const q = qtyByDishId[d.id] || 0;
-
     const line = q*Number(d.price);
     document.getElementById('l'+d.id).textContent = money(line);
     total += line;
@@ -122,7 +111,6 @@ function recalc(){
   const n = Math.max(1, Number(document.getElementById('splitN').value||1));
   document.getElementById('split').textContent = money(total/n);
 }
-
 
 function renderMenu(){
   menuEl.innerHTML = dishes.map(d => `

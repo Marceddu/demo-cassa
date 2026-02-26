@@ -1,5 +1,4 @@
 <!doctype html>
-
 <html lang="it">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Admin Piatti</title>
@@ -48,7 +47,6 @@ async function loadDishes(){
       </div>
     </div>
   `).join('');
-
 }
 async function loadCounters(){
   const c = await fetch('/admin/counters').then(r=>r.json());
@@ -56,9 +54,7 @@ async function loadCounters(){
 }
 async function addDish(){
   await fetch('/admin/piatti',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById('name').value,price:Number(document.getElementById('price').value),active:true})});
-
   document.getElementById('name').value=''; document.getElementById('price').value='';
-
   loadDishes();
 }
 async function toggle(id,active){ await fetch('/admin/piatti/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({active})}); loadDishes(); }
