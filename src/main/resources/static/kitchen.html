@@ -16,7 +16,8 @@
     .muted{color:var(--muted)}
     .chip{display:inline-block;padding:4px 10px;border-radius:999px;background:#1e293b;border:1px solid #334155;font-size:.85rem;margin-right:8px}
     .items{margin-top:8px;display:grid;gap:6px}
-    .item{display:flex;justify-content:space-between;align-items:center;gap:8px;border:1px solid #2b4169;border-radius:10px;padding:8px}
+    .item{border:1px solid #2b4169;border-radius:10px;padding:8px}
+    .head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
     .btn{border:none;border-radius:8px;padding:6px 10px;font-weight:700;cursor:pointer}
     .btn-danger{background:var(--danger);color:#fff}
   </style>
@@ -34,66 +35,34 @@
   </div>
 </div>
 <script>
-let dishesByName = {};
-let ordersCache = [];
-
 function esc(value){
   return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
 }
 
-async function loadDishes(){
-  const dishes = await fetch('/getPiatti').then(r=>r.json());
-  dishesByName = Object.fromEntries(dishes.map(d => [String(d.name).toLowerCase(), d]));
-}
-
-async function removeItem(orderId, itemName){
-  const order = ordersCache.find(o => o.id === orderId);
-  if (!order) return;
-
-  const filtered = (order.items || []).filter(i => i.name !== itemName);
-  if (filtered.length === (order.items || []).length) return;
-
-  if (!confirm(`Rimuovere "${itemName}" dall'ordine?`)) return;
-
-  const itemsPayload = filtered.map((it, pos) => {
-    const dish = dishesByName[String(it.name || '').toLowerCase()];
-    if (!dish) throw new Error(`Piatto non trovato nel menu: ${it.name}`);
-    return { dishId: dish.id, qty: Number(it.qty || 1), position: pos, itemNote: it.itemNote || null };
-  });
-
-  if (itemsPayload.length === 0) {
-    await fetch('/deleteordine/' + encodeURIComponent(orderId), { method: 'DELETE' });
-  } else {
-    const payload = {
-      id: order.id,
-      tableNo: order.tableNo,
-      notes: order.notes,
-      status: order.status,
-      items: itemsPayload
-    };
-    await fetch('/setordine', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(payload)
-    });
-  }
-
+async function deleteOrder(orderId){
+  if (!confirm('Eliminare completamente questo ordine?')) return;
+  await fetch('/deleteordine/' + encodeURIComponent(orderId), { method: 'DELETE' });
   await load();
 }
+
 function renderOrders(ord){
   const ordersEl = document.getElementById('orders');
   ordersEl.innerHTML = ord.map(o=>`
     <div class="order">
-      <div><span class="chip">${esc(o.status)}</span> Tavolo <b>${esc(o.tableNo||'-')}</b> • Totale <b>${esc(o.totalAmount)} €</b></div>
-      <div class="muted" style="margin-top:6px">Note ordine: <b>${esc(o.notes || '—')}</b></div>
+      <div class="head">
+        <div>
+          <div><span class="chip">${esc(o.status)}</span> Tavolo <b>${esc(o.tableNo||'-')}</b> • Totale <b>${esc(o.totalAmount)} €</b></div>
+          <div class="muted" style="margin-top:6px">Note ordine: <b>${esc(o.notes || '—')}</b></div>
+        </div>
+        <div>
+          <button class="btn btn-danger js-delete-order" data-order-id="${esc(o.id)}">Elimina ordine</button>
+        </div>
+      </div>
       <div class="items">
         ${(o.items||[]).map(i=>`
           <div class="item">
-            <div>
-              <div><b>${esc(i.name)}</b> x${esc(i.qty)} (${esc(i.lineTotal)}€)</div>
-              <div class="muted" style="font-size:.9rem">Nota riga: ${esc(i.itemNote || i.item_note || '—')}</div>
-            </div>
-            <button class="btn btn-danger js-remove-item" data-order-id="${esc(o.id)}" data-item-name="${esc(i.name)}">Elimina piatto</button>
+            <div><b>${esc(i.name)}</b> x${esc(i.qty)} (${esc(i.lineTotal)}€)</div>
+            <div class="muted" style="font-size:.9rem">Nota riga: ${esc(i.itemNote || i.item_note || '—')}</div>
           </div>
         `).join('')}
       </div>
@@ -102,23 +71,18 @@ function renderOrders(ord){
 }
 
 document.getElementById('orders').addEventListener('click', async (e) => {
-  const btn = e.target.closest('.js-remove-item');
+  const btn = e.target.closest('.js-delete-order');
   if (!btn) return;
   const orderId = btn.getAttribute('data-order-id');
-  const itemName = btn.getAttribute('data-item-name');
-  await removeItem(orderId, itemName);
+  await deleteOrder(orderId);
 });
 
 async function load(){
-  if (!Object.keys(dishesByName).length) await loadDishes();
-
   const [tot, ord, st] = await Promise.all([
     fetch('/gettotali').then(r=>r.json()),
-    // senza sinceMinutes: mostra tutti gli ordini presenti
     fetch('/getordini?status=NEW,IN_PROGRESS,READY,DONE').then(r=>r.json()),
     fetch('/admin/counters').then(r=>r.json())
   ]);
-  ordersCache = ord;
 
   document.getElementById('totals').innerHTML = Object.entries(tot).map(([k,v])=>`<span class="chip">${esc(k)}: <b>${esc(v)}</b></span>`).join('');
   document.getElementById('stats').innerHTML = `
