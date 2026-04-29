@@ -15,6 +15,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 import java.time.OffsetDateTime;
 import java.util.Arrays;
@@ -52,7 +53,7 @@ public class SimpleOrderDtoController {
     }
 
     @PostMapping("/setordine")
-    public ResponseEntity<?> setOrdine(@RequestBody OrderRequestDto dto) {
+    public ResponseEntity<?> setOrdine(@Valid @RequestBody OrderRequestDto dto) {
         if (dto.id != null && !dto.id.isBlank()) {
             return orderService.updateFromDto(dto)
                     .map(o -> ResponseEntity.ok(OrderMapper.toResponse(o)))

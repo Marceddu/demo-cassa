@@ -76,4 +76,86 @@ class EndpointSmokeTests {
         mockMvc.perform(delete("/deleteordine/{id}", orderId))
                 .andExpect(status().isNoContent());
     }
+
+    @Test
+    void setOrdineWithUnknownDishReturns404() throws Exception {
+        String body = """
+                {
+                  "tableNo": "T404",
+                  "notes": "missing-dish",
+                  "status": "NEW",
+                  "items": [
+                    {
+                      "dishId": 999999999,
+                      "qty": 1,
+                      "position": 0
+                    }
+                  ]
+                }
+                """;
+
+        mockMvc.perform(post("/setordine")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.error").value("Not Found"));
+    }
+
+    @Test
+    void setOrdineWithInvalidQtyReturns400() throws Exception {
+        Dish dish = dishRepository.findAllByOrderByNameAsc().stream().findFirst()
+                .orElseThrow(() -> new IllegalStateException("No dishes available for smoke test"));
+
+        String body = """
+                {
+                  "tableNo": "T400",
+                  "notes": "invalid-qty",
+                  "status": "NEW",
+                  "items": [
+                    {
+                      "dishId": %d,
+                      "qty": 0,
+                      "position": 0
+                    }
+                  ]
+                }
+                """.formatted(dish.getId());
+
+        mockMvc.perform(post("/setordine")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Bad Request"));
+    }
+
+    @Test
+    void setOrdineWithInvalidStatusReturns400() throws Exception {
+        Dish dish = dishRepository.findAllByOrderByNameAsc().stream().findFirst()
+                .orElseThrow(() -> new IllegalStateException("No dishes available for smoke test"));
+
+        String body = """
+                {
+                  "tableNo": "T400S",
+                  "notes": "invalid-status",
+                  "status": "INVALID",
+                  "items": [
+                    {
+                      "dishId": %d,
+                      "qty": 1,
+                      "position": 0
+                    }
+                  ]
+                }
+                """.formatted(dish.getId());
+
+        mockMvc.perform(post("/setordine")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Bad Request"));
+    }
+
 }

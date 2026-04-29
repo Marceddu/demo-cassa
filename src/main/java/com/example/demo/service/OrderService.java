@@ -2,6 +2,9 @@ package com.example.demo.service;
 
 import com.example.demo.dto.OrderItemDto;
 import com.example.demo.dto.OrderRequestDto;
+import com.example.demo.exception.DishNotFoundException;
+import com.example.demo.exception.InvalidOrderStatusException;
+import com.example.demo.exception.OrderNotFoundException;
 import com.example.demo.model.Dish;
 import com.example.demo.model.Order;
 import com.example.demo.model.OrderItem;
@@ -70,17 +73,16 @@ public class OrderService {
     @Transactional
     public Optional<Order> updateFromDto(OrderRequestDto dto) {
         if (dto.id == null || dto.id.isBlank()) return Optional.empty();
-        return orderRepo.findById(dto.id).map(order -> {
-            applyBaseFields(dto, order);
-            if (dto.items != null) {
-                order.getItems().clear();
-                replaceItemsFromDto(dto.items, order);
-            }
-            calculateOrderTotals(order);
-            Order saved = orderRepo.save(order);
-            statsService.refreshSnapshot();
-            return saved;
-        });
+        Order order = orderRepo.findById(dto.id).orElseThrow(() -> new OrderNotFoundException(dto.id));
+        applyBaseFields(dto, order);
+        if (dto.items != null) {
+            order.getItems().clear();
+            replaceItemsFromDto(dto.items, order);
+        }
+        calculateOrderTotals(order);
+        Order saved = orderRepo.save(order);
+        statsService.refreshSnapshot();
+        return Optional.of(saved);
     }
 
     @Transactional
@@ -93,14 +95,22 @@ public class OrderService {
     private void applyBaseFields(OrderRequestDto dto, Order o) {
         if (dto.tableNo != null) o.setTableNo(dto.tableNo);
         if (dto.notes != null) o.setNotes(dto.notes);
-        if (dto.status != null) o.setStatus(OrderStatus.valueOf(dto.status.toUpperCase()));
+        if (dto.status != null) o.setStatus(parseStatus(dto.status));
+    }
+
+    private OrderStatus parseStatus(String rawStatus) {
+        try {
+            return OrderStatus.valueOf(rawStatus.toUpperCase());
+        } catch (Exception ex) {
+            throw new InvalidOrderStatusException(rawStatus);
+        }
     }
 
     private void replaceItemsFromDto(List<OrderItemDto> items, Order o) {
         if (items == null) return;
         int pos = 0;
         for (OrderItemDto d : items) {
-            Dish dish = dishRepository.findById(d.dishId).orElseThrow();
+            Dish dish = dishRepository.findById(d.dishId).orElseThrow(() -> new DishNotFoundException(d.dishId));
             int qty = d.qty == null || d.qty < 1 ? 1 : d.qty;
             OrderItem e = new OrderItem();
             e.setName(dish.getName());
