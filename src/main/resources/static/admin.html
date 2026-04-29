@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Admin Piatti</title>
+  <style>
+    :root{--bg:#0b1220;--card:#121c32;--txt:#eef4ff;--line:#28406d;--primary:#5b8cff;--ok:#22c55e;--danger:#ef4444}
+    body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,sans-serif}
+    .wrap{max-width:1000px;margin:20px auto;padding:0 16px}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:12px}
+    .row{display:flex;gap:8px;flex-wrap:wrap}.row input{padding:9px;border:1px solid #35528a;border-radius:10px;background:#0f172a;color:#fff}
+    .dish{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px;border:1px solid var(--line);border-radius:10px;margin-top:8px;background:#0f172a}
+    .btn{border:none;border-radius:10px;padding:8px 12px;font-weight:700;cursor:pointer;color:#fff}
+    .primary{background:var(--primary)} .ok{background:var(--ok);color:#03250f} .danger{background:var(--danger)} .ghost{background:transparent;border:1px solid #38548a}
+    pre{white-space:pre-wrap;background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:10px}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Admin piatti e contatori</h1>
+  <div class="card">
+    <h2>Piatti</h2>
+    <div class="row">
+      <input id="name" placeholder="nome">
+      <input id="price" type="number" step="0.01" placeholder="prezzo">
+      <button class="btn primary" id="add">Aggiungi</button>
+    </div>
+    <div id="dishes"></div>
+  </div>
+
+  <div class="card">
+    <h2>Contatori</h2>
+    <div class="row" style="margin-bottom:8px">
+      <button class="btn ok" id="refresh">Refresh snapshot</button>
+      <a class="btn ghost" href="/admin/counters/export" target="_blank" style="text-decoration:none">Scarica TXT</a>
+    </div>
+    <pre id="counters"></pre>
+  </div>
+</div>
+<script>
+async function loadDishes(){
+  const dishes = await fetch('/admin/piatti').then(r=>r.json());
+  document.getElementById('dishes').innerHTML = dishes.map(d=>`
+    <div class="dish">
+      <div><b>${d.name}</b> • ${d.price}€ • active:${d.active}</div>
+      <div class="row">
+        <button class="btn ghost" onclick="toggle(${d.id},${!d.active})">toggle</button>
+        <button class="btn danger" onclick="removeDish(${d.id})">delete</button>
+      </div>
+    </div>
+  `).join('');
+}
+async function loadCounters(){
+  const c = await fetch('/admin/counters').then(r=>r.json());
+  document.getElementById('counters').textContent = JSON.stringify(c,null,2);
+}
+async function addDish(){
+  await fetch('/admin/piatti',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById('name').value,price:Number(document.getElementById('price').value),active:true})});
+  document.getElementById('name').value=''; document.getElementById('price').value='';
+  loadDishes();
+}
+async function toggle(id,active){ await fetch('/admin/piatti/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({active})}); loadDishes(); }
+async function removeDish(id){ await fetch('/admin/piatti/'+id,{method:'DELETE'}); loadDishes(); }
+window.toggle = toggle; window.removeDish = removeDish;
+document.getElementById('add').onclick = addDish;
+document.getElementById('refresh').onclick = async()=>{ await fetch('/admin/counters/refresh',{method:'POST'}); loadCounters(); };
+loadDishes(); loadCounters();
+</script>
+</body></html>
