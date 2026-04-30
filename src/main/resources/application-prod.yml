@@ -20,4 +20,7 @@ spring:
     baseline-version: 0
 
 server:
-  port: 8081
+  port: ${PORT:8081}
+
+print:
+  enabled: ${PRINT_ENABLED:true}
