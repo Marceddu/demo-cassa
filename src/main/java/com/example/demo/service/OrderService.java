@@ -9,9 +9,11 @@ import com.example.demo.model.Dish;
 import com.example.demo.model.Order;
 import com.example.demo.model.OrderItem;
 import com.example.demo.model.OrderStatus;
+import com.example.demo.model.*;
 import com.example.demo.repo.DishRepository;
 import com.example.demo.repo.OrderItemRepository;
 import com.example.demo.repo.OrderRepository;
+import com.example.demo.repo.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,15 +31,33 @@ public class OrderService {
     private final OrderItemRepository itemRepo;
     private final DishRepository dishRepository;
     private final StatsService statsService;
+    private final CustomerOrderV2Repository customerOrderV2Repository;
+    private final KitchenOrderRepository kitchenOrderRepository;
+    private final KitchenOrderSequenceRepository kitchenOrderSequenceRepository;
+    private final OrderItemV2Repository orderItemV2Repository;
+    private final OrderOptionRepository orderOptionRepository;
+    private final OrderItemOptionRepository orderItemOptionRepository;
 
     public OrderService(OrderRepository orderRepo,
                         OrderItemRepository itemRepo,
                         DishRepository dishRepository,
-                        StatsService statsService) {
+                        StatsService statsService,
+                        CustomerOrderV2Repository customerOrderV2Repository,
+                        KitchenOrderRepository kitchenOrderRepository,
+                        KitchenOrderSequenceRepository kitchenOrderSequenceRepository,
+                        OrderItemV2Repository orderItemV2Repository,
+                        OrderOptionRepository orderOptionRepository,
+                        OrderItemOptionRepository orderItemOptionRepository) {
         this.orderRepo = orderRepo;
         this.itemRepo = itemRepo;
         this.dishRepository = dishRepository;
         this.statsService = statsService;
+        this.customerOrderV2Repository = customerOrderV2Repository;
+        this.kitchenOrderRepository = kitchenOrderRepository;
+        this.kitchenOrderSequenceRepository = kitchenOrderSequenceRepository;
+        this.orderItemV2Repository = orderItemV2Repository;
+        this.orderOptionRepository = orderOptionRepository;
+        this.orderItemOptionRepository = orderItemOptionRepository;
     }
 
     @Transactional(readOnly = true)
@@ -66,6 +86,7 @@ public class OrderService {
         replaceItemsFromDto(dto.items, order);
         calculateOrderTotals(order);
         Order saved = orderRepo.save(order);
+        createKitchenOrdersFromDto(dto);
         statsService.refreshSnapshot();
         return saved;
     }
@@ -81,6 +102,7 @@ public class OrderService {
         }
         calculateOrderTotals(order);
         Order saved = orderRepo.save(order);
+        createKitchenOrdersFromDto(dto);
         statsService.refreshSnapshot();
         return Optional.of(saved);
     }
@@ -138,4 +160,79 @@ public class OrderService {
         order.setTotalItems(totalItems);
         order.setTotalAmount(totalAmount);
     }
+
+    private void createKitchenOrdersFromDto(OrderRequestDto dto) {
+        if (dto.items == null || dto.items.isEmpty()) return;
+        CustomerOrderV2 customerOrder = new CustomerOrderV2();
+        customerOrder.setTableName(dto.tableNo);
+        customerOrder.setOrderNote(dto.notes);
+        customerOrderV2Repository.save(customerOrder);
+
+        java.util.Map<Long, java.util.List<OrderItemDto>> byKitchen = new java.util.LinkedHashMap<>();
+        java.util.Map<Long, Dish> dishById = new java.util.HashMap<>();
+        for (OrderItemDto d : dto.items) {
+            Dish dish = dishRepository.findById(d.dishId).orElseThrow(() -> new DishNotFoundException(d.dishId));
+            if (dish.getKitchen() == null) continue;
+            dishById.put(d.dishId, dish);
+            byKitchen.computeIfAbsent(dish.getKitchen().getId(), k -> new java.util.ArrayList<>()).add(d);
+        }
+
+        java.math.BigDecimal customerTotal = java.math.BigDecimal.ZERO;
+        for (var e : byKitchen.entrySet()) {
+            Long kitchenId = e.getKey();
+            KitchenOrderSequence seq = kitchenOrderSequenceRepository.findByKitchenId(kitchenId)
+                    .orElseThrow();
+            long next = seq.getCurrentValue() + 1;
+            seq.setCurrentValue(next);
+
+            KitchenOrder ko = new KitchenOrder();
+            ko.setCustomerOrder(customerOrder);
+            ko.setKitchen(seq.getKitchen());
+            ko.setProgressiveNumber(next);
+            ko.setStatus(KitchenOrderStatus.NEW);
+
+            java.math.BigDecimal kitchenTotal = java.math.BigDecimal.ZERO;
+            for (OrderItemDto d : e.getValue()) {
+                Dish dish = dishById.get(d.dishId);
+                int qty = d.qty == null || d.qty < 1 ? 1 : d.qty;
+                java.math.BigDecimal line = dish.getPrice().multiply(java.math.BigDecimal.valueOf(qty));
+                kitchenTotal = kitchenTotal.add(line);
+            }
+            ko.setKitchenTotalAmount(kitchenTotal);
+            kitchenOrderRepository.save(ko);
+            customerTotal = customerTotal.add(kitchenTotal);
+
+            for (OrderItemDto d : e.getValue()) {
+                Dish dish = dishById.get(d.dishId);
+                int qty = d.qty == null || d.qty < 1 ? 1 : d.qty;
+                java.math.BigDecimal line = dish.getPrice().multiply(java.math.BigDecimal.valueOf(qty));
+                OrderItemV2 it = new OrderItemV2();
+                it.setCustomerOrder(customerOrder);
+                it.setKitchenOrder(ko);
+                it.setKitchen(dish.getKitchen());
+                it.setDishId(dish.getId());
+                it.setDishNameSnapshot(dish.getName());
+                it.setQty(qty);
+                it.setUnitPriceSnapshot(dish.getPrice());
+                it.setLineTotal(line);
+                it.setWeightGramsSnapshot(dish.getWeightGrams());
+                it.setItemNote(d.itemNote);
+                orderItemV2Repository.save(it);
+                if (d.optionIds != null) {
+                    for (Long optionId : d.optionIds) {
+                        OrderOption option = orderOptionRepository.findById(optionId).orElseThrow();
+                        OrderItemOption io = new OrderItemOption();
+                        io.setOrderItemId(it.getId());
+                        io.setOptionId(optionId);
+                        io.setLabelSnapshot(option.getLabel());
+                        orderItemOptionRepository.save(io);
+                    }
+                }
+            }
+        }
+        customerOrder.setTotalAmount(customerTotal);
+        customerOrderV2Repository.save(customerOrder);
+    }
+
+
 }

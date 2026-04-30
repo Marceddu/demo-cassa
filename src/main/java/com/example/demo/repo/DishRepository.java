@@ -10,4 +10,5 @@ public interface DishRepository extends JpaRepository<Dish, Long> {
     List<Dish> findByActiveTrueOrderByNameAsc();
     List<Dish> findAllByOrderByNameAsc();
     Optional<Dish> findByNameIgnoreCase(String name);
+    java.util.List<Dish> findByKitchenIdAndActiveTrueOrderByNameAsc(Long kitchenId);
 }

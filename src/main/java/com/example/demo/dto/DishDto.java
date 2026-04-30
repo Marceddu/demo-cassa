@@ -7,4 +7,5 @@ public class DishDto {
     public String name;
     public BigDecimal price;
     public Boolean active;
+    public Long kitchenId;
 }

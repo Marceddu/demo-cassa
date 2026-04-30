@@ -158,4 +158,29 @@ class EndpointSmokeTests {
                 .andExpect(jsonPath("$.error").value("Bad Request"));
     }
 
+    @Test
+    void kitchensApiReturnsDefaultKitchens() throws Exception {
+        mockMvc.perform(get("/api/v1/kitchens"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.name=='Panini')]").exists())
+                .andExpect(jsonPath("$[?(@.name=='Cucina Dentro')]").exists());
+    }
+
+    @Test
+    void kitchenDishesApiFiltersByKitchen() throws Exception {
+        MvcResult kitchens = mockMvc.perform(get("/api/v1/kitchens"))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String json = kitchens.getResponse().getContentAsString();
+        String paniniId = json.replaceAll(".*\"name\"\s*:\s*\"Panini\".*?\"id\"\s*:\s*(\\d+).*", "$1");
+        if (paniniId.equals(json)) {
+            paniniId = json.replaceAll(".*\"id\"\s*:\s*(\\d+).*\"name\"\s*:\s*\"Panini\".*", "$1");
+        }
+
+        mockMvc.perform(get("/api/v1/kitchens/{id}/dishes", paniniId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].kitchenId").value(Long.parseLong(paniniId)));
+    }
+
 }

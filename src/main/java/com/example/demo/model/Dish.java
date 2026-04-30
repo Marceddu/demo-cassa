@@ -5,6 +5,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -28,6 +30,12 @@ public class Dish {
 
     @Column(nullable = false)
     private boolean active = true;
+
+    private Integer weightGrams;
+
+    @ManyToOne
+    @JoinColumn(name = "kitchen_id")
+    private Kitchen kitchen;
 
     @Column(nullable = false)
     private OffsetDateTime createdAt;
@@ -55,6 +63,10 @@ public class Dish {
     public void setPrice(BigDecimal price) { this.price = price; }
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
+    public Integer getWeightGrams() { return weightGrams; }
+    public void setWeightGrams(Integer weightGrams) { this.weightGrams = weightGrams; }
+    public Kitchen getKitchen() { return kitchen; }
+    public void setKitchen(Kitchen kitchen) { this.kitchen = kitchen; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
 }
