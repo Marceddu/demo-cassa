@@ -13,6 +13,8 @@ public class OrderOptionService {
     public OrderOptionService(OrderOptionRepository repository){this.repository=repository;}
     public List<OrderOption> listActive(){return repository.findByActiveTrueOrderBySortOrderAscLabelAsc();}
     public OrderOption create(OrderOptionDto dto){
+        var existing = repository.findByLabelIgnoreCase(dto.label);
+        if (existing.isPresent()) return existing.get();
         OrderOption o = new OrderOption();
         o.setLabel(dto.label);
         o.setActive(dto.active == null || dto.active);

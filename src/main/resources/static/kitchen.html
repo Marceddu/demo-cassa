@@ -1,11 +1,22 @@
-<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Kitchen</title><style>body{font-family:sans-serif;padding:12px}.o{border:1px solid #ccc;margin:8px 0;padding:8px}.muted{color:#555}</style></head><body>
-<h2 id='title'>Kitchen</h2><div id='orders'></div><script>
-const q=new URLSearchParams(location.search); const kitchenId=q.get('kitchenId')||'1';
+<!doctype html><html lang='it'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Kitchen</title>
+<style>
+:root{--bg:#0b1220;--card:#121c32;--line:#28406d;--txt:#eef4ff;--muted:#9caed8;--danger:#ef4444}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,sans-serif}.wrap{max-width:900px;margin:20px auto;padding:0 14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:12px}.order{border:1px solid var(--line);border-radius:12px;padding:10px;margin:8px 0;background:#0f172a}
+.btn{background:var(--danger);color:#fff;border:none;border-radius:10px;padding:8px 12px;font-weight:700;cursor:pointer}.muted{color:var(--muted)}
+</style></head><body><div class='wrap'><h1 id='title'>Kitchen</h1><div class='card'><h3>Contatori cucina</h3><div id='agg'></div></div><div class='card'><div id='orders'></div></div></div>
+<script>
+const kitchenId=(new URLSearchParams(location.search)).get('kitchenId')||'1';
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
 async function load(){
- const ks=await fetch('/api/v1/kitchens').then(r=>r.json()); const k=ks.find(x=>String(x.id)===String(kitchenId)); document.getElementById('title').textContent='Kitchen '+(k?k.name:kitchenId);
+ const kitchens=await fetch('/api/v1/kitchens').then(r=>r.json()); const k=kitchens.find(x=>String(x.id)===String(kitchenId));
+ document.getElementById('title').textContent='Kitchen '+(k?k.name:kitchenId);
  const list=await fetch('/api/v1/kitchens/'+kitchenId+'/orders').then(r=>r.json());
- document.getElementById('orders').innerHTML=list.map(o=>`<div class='o'><div><b>N ${o.progressiveNumber}</b> • ${o.status}</div><div class='muted'>Tavolo: ${o.tableNo||'-'} • Note: ${o.orderNote||'-'}</div>${(o.items||[]).map(i=>`<div>${i.qty} ${i.dishName} ${(i.optionLabels||[]).join(', ')} <span class='muted'>${i.itemNote||''}</span></div>`).join('')}<div><b>Totale cucina:</b> ${o.kitchenTotalAmount} € • <b>Grammatura:</b> ${o.totalWeightFormatted||'-'}</div><button onclick='del(${o.id})'>DELETE</button></div>`).join('');
+ const counters={}; let totalWeight='-';
+ list.forEach(o=>{ totalWeight=o.totalWeightFormatted||totalWeight; (o.items||[]).forEach(i=>{ const key=i.dishName||''; counters[key]=(counters[key]||0)+Number(i.qty||0); }); });
+ document.getElementById('agg').innerHTML=Object.entries(counters).map(([n,q])=>`<div>${esc(n)}: <b>${q}</b></div>`).join('') + `<div class='muted'>Grammatura totale: <b>${esc(totalWeight)}</b></div>`;
+ document.getElementById('orders').innerHTML=list.map(o=>`<div class='order'><div><b>N ${o.progressiveNumber}</b></div>${(o.items||[]).map(i=>`<div>${i.qty} ${esc(i.dishName)} ${(i.optionLabels||[]).map(esc).join(', ')} ${i.itemNote?`<span class='muted'>(${esc(i.itemNote)})</span>`:''}</div>`).join('')}<div class='muted'>Grammatura: ${esc(o.totalWeightFormatted||'-')}</div><button class='btn' onclick='del(${o.id})'>DELETE</button></div>`).join('');
 }
-async function del(id){ await fetch('/api/v1/kitchen-orders/'+id,{method:'DELETE'}); await load(); }
-setInterval(load,1000); load();
+async function del(id){await fetch('/api/v1/kitchen-orders/'+id,{method:'DELETE'});load();}
+setInterval(load,1000);load();
 </script></body></html>

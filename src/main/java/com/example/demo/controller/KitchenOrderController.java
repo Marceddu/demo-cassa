@@ -46,9 +46,10 @@ public class KitchenOrderController {
     }
 
     @GetMapping(value = "/kitchen-orders/{id}/receipt", produces = MediaType.TEXT_PLAIN_VALUE)
-    public String receipt(@PathVariable Long id) {
-        KitchenOrder ko = kitchenOrderRepository.findById(id).orElseThrow();
-        List<OrderItemV2> items = orderItemV2Repository.findByKitchenOrderId(id);
+    public String receipt(@PathVariable String id) {
+        Long numericId = Long.parseLong(id.replaceAll("[^0-9]", ""));
+        KitchenOrder ko = kitchenOrderRepository.findById(numericId).orElseThrow();
+        List<OrderItemV2> items = orderItemV2Repository.findByKitchenOrderId(numericId);
         int width = 16;
         List<String> lines = new ArrayList<>();
         lines.add("Ordine");

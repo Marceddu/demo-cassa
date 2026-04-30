@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface OrderOptionRepository extends JpaRepository<OrderOption, Long> {
     List<OrderOption> findByActiveTrueOrderBySortOrderAscLabelAsc();
+    java.util.Optional<OrderOption> findByLabelIgnoreCase(String label);
 }
