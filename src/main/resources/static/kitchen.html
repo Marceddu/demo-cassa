@@ -1,11 +1,75 @@
-<!doctype html><html lang='it'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Kitchen</title>
+<!doctype html>
+<html lang='it'>
+<head>
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width,initial-scale=1'>
+<title>Kitchen</title>
 <style>
-:root{--bg:#0b1220;--card:#121c32;--line:#28406d;--txt:#eef4ff;--muted:#9caed8;--danger:#ef4444}
-body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,sans-serif}.wrap{max-width:900px;margin:20px auto;padding:0 14px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:12px}.order{border:1px solid var(--line);border-radius:12px;padding:10px;margin:8px 0;background:#0f172a}
-.btn{background:var(--danger);color:#fff;border:none;border-radius:10px;padding:8px 12px;font-weight:700;cursor:pointer}.muted{color:var(--muted)}
-</style></head><body><div class='wrap'><h1 id='title'>Kitchen</h1><div class='card'><h3>Contatori cucina</h3><div id='agg'></div></div><div class='card'><div id='orders'></div></div></div>
-<script>
+:root {
+	--bg: #0b1220;
+	--card: #121c32;
+	--line: #28406d;
+	--txt: #eef4ff;
+	--muted: #9caed8;
+	--danger: #ef4444
+}
+
+body {
+	margin: 0;
+	background: var(--bg);
+	color: var(--txt);
+	font-family: Inter, system-ui, sans-serif
+}
+
+.wrap {
+	max-width: 900px;
+	margin: 20px auto;
+	padding: 0 14px
+}
+
+.card {
+	background: var(--card);
+	border: 1px solid var(--line);
+	border-radius: 14px;
+	padding: 14px;
+	margin-top: 12px
+}
+
+.order {
+	border: 1px solid var(--line);
+	border-radius: 12px;
+	padding: 10px;
+	margin: 8px 0;
+	background: #0f172a
+}
+
+.btn {
+	background: var(--danger);
+	color: #fff;
+	border: none;
+	border-radius: 10px;
+	padding: 8px 12px;
+	font-weight: 700;
+	cursor: pointer
+}
+
+.muted {
+	color: var(--muted)
+}
+</style>
+</head>
+<body>
+	<div class='wrap'>
+		<h1 id='title'>Kitchen</h1>
+		<div class='card'>
+			<h3>Contatori cucina</h3>
+			<div id='agg'></div>
+		</div>
+		<div class='card'>
+			<div id='orders'></div>
+		</div>
+	</div>
+	<script>
 const kitchenId=(new URLSearchParams(location.search)).get('kitchenId')||'1';
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
 async function load(){
@@ -15,8 +79,30 @@ async function load(){
  const counters={}; let totalWeight='-';
  list.forEach(o=>{ totalWeight=o.totalWeightFormatted||totalWeight; (o.items||[]).forEach(i=>{ const key=i.dishName||''; counters[key]=(counters[key]||0)+Number(i.qty||0); }); });
  document.getElementById('agg').innerHTML=Object.entries(counters).map(([n,q])=>`<div>${esc(n)}: <b>${q}</b></div>`).join('') + `<div class='muted'>Grammatura totale: <b>${esc(totalWeight)}</b></div>`;
- document.getElementById('orders').innerHTML=list.map(o=>`<div class='order'><div><b>N ${o.progressiveNumber}</b></div>${(o.items||[]).map(i=>`<div>${i.qty} ${esc(i.dishName)} ${(i.optionLabels||[]).map(esc).join(', ')} ${i.itemNote?`<span class='muted'>(${esc(i.itemNote)})</span>`:''}</div>`).join('')}<div class='muted'>Grammatura: ${esc(o.totalWeightFormatted||'-')}</div><button class='btn' onclick='del(${o.id})'>DELETE</button></div>`).join('');
-}
+ document.getElementById('orders').innerHTML=list.map(o=>`
+ <div class='order'>
+   <div><b>N ${o.progressiveNumber}</b></div>
+
+   ${o.tableNo ? `<div class='muted'>Tavolo: ${esc(o.tableNo)}</div>` : ''}
+
+   ${o.orderNote ? `<div class='muted'>Nota ordine: ${esc(o.orderNote)}</div>` : ''}
+
+   ${(o.items||[]).map(i=>`
+     <div>
+       ${i.qty} ${esc(i.dishName)}
+       ${(i.optionLabels||[]).map(esc).join(', ')}
+       ${i.itemNote ? `<span class='muted'>(${esc(i.itemNote)})</span>` : ''}
+     </div>
+   `).join('')}
+
+   <div class='muted'>Grammatura: ${esc(o.totalWeightFormatted||'-')}</div>
+
+   <button class='btn' onclick='del(${o.id})'>DELETE</button>
+ </div>
+`).join('');
+ }
 async function del(id){await fetch('/api/v1/kitchen-orders/'+id,{method:'DELETE'});load();}
 setInterval(load,1000);load();
-</script></body></html>
+</script>
+</body>
+</html>
