@@ -13,7 +13,7 @@ import java.nio.charset.StandardCharsets;
 public class PrintService {
     private static final Logger log = LoggerFactory.getLogger(PrintService.class);
 
-    @Value("${print.enabled:false}")
+    @Value("${print.enabled:true}")
     private boolean printEnabled;
 
     public void printReceipt(String receiptText) {
