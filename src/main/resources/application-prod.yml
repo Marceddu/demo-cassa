@@ -1,26 +1,17 @@
+server:
+  port: ${PORT:8080}
+
 spring:
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
-    driverClassName: org.postgresql.Driver
-    hikari:
-      maximum-pool-size: ${DB_POOL_MAX_SIZE:20}
-  h2:
-    console:
-      enabled: false
+    driver-class-name: org.postgresql.Driver
+
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: validate
-    open-in-view: false
-    show-sql: false
+
   flyway:
     enabled: true
-    baseline-on-migrate: true
-    baseline-version: 0
-
-server:
-  port: ${PORT:8081}
-
-print:
-  enabled: ${PRINT_ENABLED:true}
