@@ -2,14 +2,22 @@ package com.example.demo.service;
 
 import com.example.demo.dto.OrderItemDto;
 import com.example.demo.dto.OrderRequestDto;
+import com.example.demo.exception.DishNotFoundException;
+import com.example.demo.exception.InvalidOrderStatusException;
+import com.example.demo.exception.OrderNotFoundException;
+import com.example.demo.model.Dish;
 import com.example.demo.model.Order;
 import com.example.demo.model.OrderItem;
 import com.example.demo.model.OrderStatus;
+import com.example.demo.model.*;
+import com.example.demo.repo.DishRepository;
 import com.example.demo.repo.OrderItemRepository;
 import com.example.demo.repo.OrderRepository;
+import com.example.demo.repo.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.EnumMap;
 import java.util.List;
@@ -21,13 +29,30 @@ public class OrderService {
 
     private final OrderRepository orderRepo;
     private final OrderItemRepository itemRepo;
+    private final DishRepository dishRepository;
+    private final StatsService statsService;
+    private final CustomerOrderV2Repository customerOrderV2Repository;
+    private final KitchenOrderRepository kitchenOrderRepository;
+    private final KitchenOrderSequenceRepository kitchenOrderSequenceRepository;
+    private final OrderItemV2Repository orderItemV2Repository;
 
-    public OrderService(OrderRepository orderRepo, OrderItemRepository itemRepo) {
+    public OrderService(OrderRepository orderRepo,
+                        OrderItemRepository itemRepo,
+                        DishRepository dishRepository,
+                        StatsService statsService,
+                        CustomerOrderV2Repository customerOrderV2Repository,
+                        KitchenOrderRepository kitchenOrderRepository,
+                        KitchenOrderSequenceRepository kitchenOrderSequenceRepository,
+                        OrderItemV2Repository orderItemV2Repository) {
         this.orderRepo = orderRepo;
         this.itemRepo = itemRepo;
+        this.dishRepository = dishRepository;
+        this.statsService = statsService;
+        this.customerOrderV2Repository = customerOrderV2Repository;
+        this.kitchenOrderRepository = kitchenOrderRepository;
+        this.kitchenOrderSequenceRepository = kitchenOrderSequenceRepository;
+        this.orderItemV2Repository = orderItemV2Repository;
     }
-
-    // ---------- Letture ----------
 
     @Transactional(readOnly = true)
     public List<Order> listByStatuses(List<OrderStatus> statuses) {
@@ -48,76 +73,158 @@ public class OrderService {
         return out;
     }
 
-    // ---------- Scritture via DTO ----------
-
-    /** Create da DTO. */
     @Transactional
     public Order createFromDto(OrderRequestDto dto) {
-        Order o = new Order();
-        applyBaseFields(dto, o);
-        if (dto.items != null) {
-            replaceItemsFromDto(dto.items, o);
-        }
-        return orderRepo.save(o);
+        Order order = new Order();
+        applyBaseFields(dto, order);
+        replaceItemsFromDto(dto.items, order);
+        calculateOrderTotals(order);
+        Order saved = orderRepo.save(order);
+        createKitchenOrdersFromDto(dto);
+        statsService.refreshSnapshot();
+        return saved;
     }
 
-    /** Update da DTO (richiede dto.id). Sostituisce gli items se dto.items != null. */
     @Transactional
     public Optional<Order> updateFromDto(OrderRequestDto dto) {
         if (dto.id == null || dto.id.isBlank()) return Optional.empty();
-
-        return orderRepo.findById(dto.id).map(o -> {
-            applyBaseFields(dto, o);
-            if (dto.items != null) {
-                // sostituzione atomica lista (orphanRemoval=true gestisce le righe obsolete)
-                o.getItems().clear();
-                replaceItemsFromDto(dto.items, o);
-            }
-            return orderRepo.save(o);
-        });
+        Order order = orderRepo.findById(dto.id).orElseThrow(() -> new OrderNotFoundException(dto.id));
+        applyBaseFields(dto, order);
+        if (dto.items != null) {
+            order.getItems().clear();
+            replaceItemsFromDto(dto.items, order);
+        }
+        calculateOrderTotals(order);
+        Order saved = orderRepo.save(order);
+        createKitchenOrdersFromDto(dto);
+        statsService.refreshSnapshot();
+        return Optional.of(saved);
     }
 
-    /** Cambio stato semplice (utility). */
-    @Transactional
-    public Optional<Order> updateStatus(String orderId, OrderStatus status) {
-        return orderRepo.findById(orderId).map(o -> {
-            o.setStatus(status);
-            return orderRepo.save(o);
-        });
-    }
-
-    /** Delete ordine + righe. */
     @Transactional
     public void delete(String orderId) {
         itemRepo.deleteByOrderId(orderId);
         orderRepo.deleteById(orderId);
+        statsService.refreshSnapshot();
     }
-
-    /** Purge dei DONE più vecchi di X ore. */
-    @Transactional
-    public void purgeDoneOlderThan(long hours) {
-        OffsetDateTime threshold = OffsetDateTime.now().minusHours(hours);
-        orderRepo.deleteByStatusAndCreatedAtBefore(OrderStatus.DONE, threshold);
-    }
-
-    // ---------- Helpers ----------
 
     private void applyBaseFields(OrderRequestDto dto, Order o) {
         if (dto.tableNo != null) o.setTableNo(dto.tableNo);
-        if (dto.notes   != null) o.setNotes(dto.notes);
-        if (dto.status  != null) o.setStatus(OrderStatus.valueOf(dto.status.toUpperCase()));
+        if (dto.notes != null) o.setNotes(dto.notes);
+        if (dto.status != null) o.setStatus(parseStatus(dto.status));
+    }
+
+    private OrderStatus parseStatus(String rawStatus) {
+        try {
+            return OrderStatus.valueOf(rawStatus.toUpperCase());
+        } catch (Exception ex) {
+            throw new InvalidOrderStatusException(rawStatus);
+        }
     }
 
     private void replaceItemsFromDto(List<OrderItemDto> items, Order o) {
+        if (items == null) return;
         int pos = 0;
         for (OrderItemDto d : items) {
+            Dish dish = dishRepository.findById(d.dishId).orElseThrow(() -> new DishNotFoundException(d.dishId));
+            int qty = d.qty == null || d.qty < 1 ? 1 : d.qty;
             OrderItem e = new OrderItem();
-            e.setName(d.name);
-            e.setQty(d.qty == null ? 1 : d.qty);
+            e.setName(dish.getName());
+            e.setQty(qty);
             e.setItemNote(d.itemNote);
             e.setPosition(d.position != null ? d.position : pos++);
+            e.setUnitPrice(dish.getPrice());
+            e.setLineTotal(dish.getPrice().multiply(BigDecimal.valueOf(qty)));
             e.setOrder(o);
             o.getItems().add(e);
         }
     }
+
+    private void calculateOrderTotals(Order order) {
+        int totalItems = 0;
+        BigDecimal totalAmount = BigDecimal.ZERO;
+        for (OrderItem item : order.getItems()) {
+            int qty = item.getQty() == null || item.getQty() < 1 ? 1 : item.getQty();
+            item.setQty(qty);
+            BigDecimal line = item.getUnitPrice().multiply(BigDecimal.valueOf(qty));
+            item.setLineTotal(line);
+            totalItems += qty;
+            totalAmount = totalAmount.add(line);
+        }
+        order.setTotalItems(totalItems);
+        order.setTotalAmount(totalAmount);
+    }
+
+    private void createKitchenOrdersFromDto(OrderRequestDto dto) {
+        if (dto.items == null || dto.items.isEmpty()) return;
+        CustomerOrderV2 customerOrder = new CustomerOrderV2();
+        customerOrder.setTableName(dto.tableNo);
+        customerOrder.setOrderNote(dto.notes);
+        customerOrderV2Repository.save(customerOrder);
+
+        java.util.Map<Long, java.util.List<OrderItemDto>> byKitchen = new java.util.LinkedHashMap<>();
+        java.util.Map<Long, Dish> dishById = new java.util.HashMap<>();
+        for (OrderItemDto d : dto.items) {
+            Dish dish = dishRepository.findById(d.dishId).orElseThrow(() -> new DishNotFoundException(d.dishId));
+            if (dish.getKitchen() == null) continue;
+            dishById.put(d.dishId, dish);
+            byKitchen.computeIfAbsent(dish.getKitchen().getId(), k -> new java.util.ArrayList<>()).add(d);
+        }
+
+        java.math.BigDecimal customerTotal = java.math.BigDecimal.ZERO;
+        for (var e : byKitchen.entrySet()) {
+            Long kitchenId = e.getKey();
+            KitchenOrderSequence seq = kitchenOrderSequenceRepository.findByKitchenId(kitchenId)
+                    .orElseThrow();
+            long next = seq.getCurrentValue() + 1;
+            seq.setCurrentValue(next);
+
+            KitchenOrder ko = new KitchenOrder();
+            ko.setCustomerOrder(customerOrder);
+            ko.setKitchen(seq.getKitchen());
+            ko.setProgressiveNumber(next);
+            ko.setStatus(KitchenOrderStatus.NEW);
+
+            java.math.BigDecimal kitchenTotal = java.math.BigDecimal.ZERO;
+            for (OrderItemDto d : e.getValue()) {
+                Dish dish = dishById.get(d.dishId);
+                int qty = d.qty == null || d.qty < 1 ? 1 : d.qty;
+                java.math.BigDecimal line = dish.getPrice().multiply(java.math.BigDecimal.valueOf(qty));
+                kitchenTotal = kitchenTotal.add(line);
+            }
+            ko.setKitchenTotalAmount(kitchenTotal);
+            kitchenOrderRepository.save(ko);
+            customerTotal = customerTotal.add(kitchenTotal);
+
+            for (OrderItemDto d : e.getValue()) {
+                Dish dish = dishById.get(d.dishId);
+                int qty = d.qty == null || d.qty < 1 ? 1 : d.qty;
+                java.math.BigDecimal line = dish.getPrice().multiply(java.math.BigDecimal.valueOf(qty));
+                OrderItemV2 it = new OrderItemV2();
+                java.lang.reflect.Field[] fs = OrderItemV2.class.getDeclaredFields();
+                it = fillOrderItemV2(it, customerOrder, ko, dish, qty, line, d.itemNote);
+                orderItemV2Repository.save(it);
+            }
+        }
+        customerOrder.setTotalAmount(customerTotal);
+        customerOrderV2Repository.save(customerOrder);
+    }
+
+    private OrderItemV2 fillOrderItemV2(OrderItemV2 it, CustomerOrderV2 co, KitchenOrder ko, Dish dish, int qty, java.math.BigDecimal line, String note) {
+        try {
+            java.lang.reflect.Field f;
+            f = OrderItemV2.class.getDeclaredField("customerOrder"); f.setAccessible(true); f.set(it, co);
+            f = OrderItemV2.class.getDeclaredField("kitchenOrder"); f.setAccessible(true); f.set(it, ko);
+            f = OrderItemV2.class.getDeclaredField("kitchen"); f.setAccessible(true); f.set(it, dish.getKitchen());
+            f = OrderItemV2.class.getDeclaredField("dishId"); f.setAccessible(true); f.set(it, dish.getId());
+            f = OrderItemV2.class.getDeclaredField("dishNameSnapshot"); f.setAccessible(true); f.set(it, dish.getName());
+            f = OrderItemV2.class.getDeclaredField("qty"); f.setAccessible(true); f.set(it, qty);
+            f = OrderItemV2.class.getDeclaredField("unitPriceSnapshot"); f.setAccessible(true); f.set(it, dish.getPrice());
+            f = OrderItemV2.class.getDeclaredField("lineTotal"); f.setAccessible(true); f.set(it, line);
+            f = OrderItemV2.class.getDeclaredField("weightGramsSnapshot"); f.setAccessible(true); f.set(it, null);
+            f = OrderItemV2.class.getDeclaredField("itemNote"); f.setAccessible(true); f.set(it, note);
+        } catch (Exception ex) { throw new RuntimeException(ex); }
+        return it;
+    }
+
 }
