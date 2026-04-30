@@ -12,5 +12,15 @@ UPDATE dishes d
 SET kitchen_id = (SELECT id FROM kitchens WHERE name = 'Panini')
 WHERE kitchen_id IS NULL;
 
-ALTER TABLE dishes ADD CONSTRAINT IF NOT EXISTS fk_dishes_kitchen
-FOREIGN KEY (kitchen_id) REFERENCES kitchens(id);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'fk_dishes_kitchen'
+  ) THEN
+    ALTER TABLE dishes
+    ADD CONSTRAINT fk_dishes_kitchen
+    FOREIGN KEY (kitchen_id) REFERENCES kitchens(id);
+  END IF;
+END $$;
