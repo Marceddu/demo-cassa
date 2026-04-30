@@ -37,8 +37,7 @@ public class StatsSnapshot {
     @Column(nullable = false)
     private long doneOrders;
 
-    @Lob
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String dishCounters;
 
     @PrePersist
