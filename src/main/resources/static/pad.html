@@ -13,10 +13,11 @@ function st(id) {
   return state[id];
 }
 
-function resetForm() {
+function resetFormImmediate() {
   state = {};
   document.getElementById("notes").value = "";
   document.getElementById("tableNo").value = "";
+  document.getElementById("gt").textContent = "0.00";
   document.getElementById("msg").textContent = "Ordine inviato con successo";
   render();
 }
@@ -24,14 +25,18 @@ function resetForm() {
 async function load() {
   if (isSending) return;
 
-  kitchens = await fetch("/api/v1/kitchens").then(r => r.json());
-  options = await fetch("/api/v1/order-options").then(r => r.json()).catch(() => []);
+  try {
+    kitchens = await fetch("/api/v1/kitchens").then(r => r.json());
+    options = await fetch("/api/v1/order-options").then(r => r.json()).catch(() => []);
 
-  for (const k of kitchens) {
-    dishesByKitchen[k.id] = await fetch("/api/v1/kitchens/" + k.id + "/dishes").then(r => r.json());
+    for (const k of kitchens) {
+      dishesByKitchen[k.id] = await fetch("/api/v1/kitchens/" + k.id + "/dishes").then(r => r.json());
+    }
+
+    render();
+  } catch (e) {
+    document.getElementById("msg").textContent = "Errore caricamento dati: " + e.message;
   }
-
-  render();
 }
 
 function render() {
@@ -67,9 +72,9 @@ function render() {
           </div>
 
           <div class="q">
-            <button data-a="m" data-id="${d.id}">-</button>
+            <button type="button" data-a="m" data-id="${d.id}">-</button>
             <b>${s.qty}</b>
-            <button data-a="p" data-id="${d.id}">+</button>
+            <button type="button" data-a="p" data-id="${d.id}">+</button>
           </div>
 
           <div>
@@ -93,18 +98,20 @@ function render() {
 
 document.body.addEventListener("click", e => {
   const b = e.target.closest("button[data-a]");
-  if (!b) return;
+  if (!b || isSending) return;
 
   const s = st(b.dataset.id);
   s.qty = Math.max(0, (s.qty || 0) + (b.dataset.a === "p" ? 1 : -1));
   render();
 });
 
-document.body.addEventListener("change", e => {
+document.body.addEventListener("input", e => {
   if (e.target.dataset.n) {
     st(e.target.dataset.n).itemNote = e.target.value;
   }
+});
 
+document.body.addEventListener("change", e => {
   if (e.target.dataset.o) {
     const s = st(e.target.dataset.d);
     const o = Number(e.target.dataset.o);
@@ -118,6 +125,11 @@ document.body.addEventListener("change", e => {
 });
 
 document.getElementById("send").onclick = async () => {
+  if (isSending) return;
+
+  const sendBtn = document.getElementById("send");
+  const msg = document.getElementById("msg");
+
   const items = [];
   const kitchensInvolved = new Set();
 
@@ -139,7 +151,7 @@ document.getElementById("send").onclick = async () => {
   });
 
   if (!items.length) {
-    document.getElementById("msg").textContent = "Seleziona almeno un piatto";
+    msg.textContent = "Seleziona almeno un piatto";
     return;
   }
 
@@ -152,6 +164,9 @@ document.getElementById("send").onclick = async () => {
 
   try {
     isSending = true;
+    sendBtn.disabled = true;
+    sendBtn.textContent = "Invio...";
+    msg.textContent = "Invio ordine...";
 
     const response = await fetch("/setordine", {
       method: "POST",
@@ -162,7 +177,7 @@ document.getElementById("send").onclick = async () => {
     const text = await response.text();
 
     if (!response.ok) {
-      document.getElementById("msg").textContent = "Errore invio ordine: " + text;
+      msg.textContent = "Errore invio ordine: " + text;
       return;
     }
 
@@ -174,11 +189,14 @@ document.getElementById("send").onclick = async () => {
       <div>Cucine:<ul>${details}</ul></div>
     `;
 
-    resetForm();
+    resetFormImmediate();
+
   } catch (e) {
-    document.getElementById("msg").textContent = "Errore invio ordine: " + e.message;
+    msg.textContent = "Errore invio ordine: " + e.message;
   } finally {
     isSending = false;
+    sendBtn.disabled = false;
+    sendBtn.textContent = "Invia ordine";
   }
 };
 
