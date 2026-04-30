@@ -201,8 +201,16 @@ public class OrderService {
                 int qty = d.qty == null || d.qty < 1 ? 1 : d.qty;
                 java.math.BigDecimal line = dish.getPrice().multiply(java.math.BigDecimal.valueOf(qty));
                 OrderItemV2 it = new OrderItemV2();
-                java.lang.reflect.Field[] fs = OrderItemV2.class.getDeclaredFields();
-                it = fillOrderItemV2(it, customerOrder, ko, dish, qty, line, d.itemNote);
+                it.setCustomerOrder(customerOrder);
+                it.setKitchenOrder(ko);
+                it.setKitchen(dish.getKitchen());
+                it.setDishId(dish.getId());
+                it.setDishNameSnapshot(dish.getName());
+                it.setQty(qty);
+                it.setUnitPriceSnapshot(dish.getPrice());
+                it.setLineTotal(line);
+                it.setWeightGramsSnapshot(dish.getWeightGrams());
+                it.setItemNote(d.itemNote);
                 orderItemV2Repository.save(it);
             }
         }
@@ -210,21 +218,5 @@ public class OrderService {
         customerOrderV2Repository.save(customerOrder);
     }
 
-    private OrderItemV2 fillOrderItemV2(OrderItemV2 it, CustomerOrderV2 co, KitchenOrder ko, Dish dish, int qty, java.math.BigDecimal line, String note) {
-        try {
-            java.lang.reflect.Field f;
-            f = OrderItemV2.class.getDeclaredField("customerOrder"); f.setAccessible(true); f.set(it, co);
-            f = OrderItemV2.class.getDeclaredField("kitchenOrder"); f.setAccessible(true); f.set(it, ko);
-            f = OrderItemV2.class.getDeclaredField("kitchen"); f.setAccessible(true); f.set(it, dish.getKitchen());
-            f = OrderItemV2.class.getDeclaredField("dishId"); f.setAccessible(true); f.set(it, dish.getId());
-            f = OrderItemV2.class.getDeclaredField("dishNameSnapshot"); f.setAccessible(true); f.set(it, dish.getName());
-            f = OrderItemV2.class.getDeclaredField("qty"); f.setAccessible(true); f.set(it, qty);
-            f = OrderItemV2.class.getDeclaredField("unitPriceSnapshot"); f.setAccessible(true); f.set(it, dish.getPrice());
-            f = OrderItemV2.class.getDeclaredField("lineTotal"); f.setAccessible(true); f.set(it, line);
-            f = OrderItemV2.class.getDeclaredField("weightGramsSnapshot"); f.setAccessible(true); f.set(it, null);
-            f = OrderItemV2.class.getDeclaredField("itemNote"); f.setAccessible(true); f.set(it, note);
-        } catch (Exception ex) { throw new RuntimeException(ex); }
-        return it;
-    }
 
 }

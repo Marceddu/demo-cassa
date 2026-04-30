@@ -11,4 +11,5 @@ public class KitchenOrderDto {
     public String status;
     public BigDecimal kitchenTotalAmount;
     public OffsetDateTime cancelledAt;
+    public String totalWeightFormatted;
 }

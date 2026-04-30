@@ -4,6 +4,8 @@ import com.example.demo.dto.KitchenOrderDto;
 import com.example.demo.model.KitchenOrder;
 import com.example.demo.model.KitchenOrderStatus;
 import com.example.demo.repo.KitchenOrderRepository;
+import com.example.demo.repo.OrderItemV2Repository;
+import com.example.demo.util.WeightFormatUtil;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -15,7 +17,12 @@ import java.util.List;
 @RequestMapping("/api/v1")
 public class KitchenOrderController {
     private final KitchenOrderRepository kitchenOrderRepository;
-    public KitchenOrderController(KitchenOrderRepository kitchenOrderRepository){this.kitchenOrderRepository=kitchenOrderRepository;}
+    private final OrderItemV2Repository orderItemV2Repository;
+
+    public KitchenOrderController(KitchenOrderRepository kitchenOrderRepository, OrderItemV2Repository orderItemV2Repository){
+        this.kitchenOrderRepository=kitchenOrderRepository;
+        this.orderItemV2Repository = orderItemV2Repository;
+    }
 
     @GetMapping("/kitchens/{kitchenId}/orders")
     public List<KitchenOrderDto> list(@PathVariable Long kitchenId){
@@ -36,6 +43,10 @@ public class KitchenOrderController {
         KitchenOrderDto d=new KitchenOrderDto();
         d.id=k.getId(); d.customerOrderId=k.getCustomerOrder().getId(); d.kitchenId=k.getKitchen().getId();
         d.progressiveNumber=k.getProgressiveNumber(); d.status=k.getStatus().name(); d.kitchenTotalAmount=k.getKitchenTotalAmount(); d.cancelledAt=k.getCancelledAt();
+        int total = orderItemV2Repository.findByKitchenOrderId(k.getId()).stream()
+                .mapToInt(i -> (i.getWeightGramsSnapshot() == null ? 0 : i.getWeightGramsSnapshot()) * (i.getQty() == null ? 0 : i.getQty()))
+                .sum();
+        d.totalWeightFormatted = WeightFormatUtil.format(total);
         return d;
     }
 }

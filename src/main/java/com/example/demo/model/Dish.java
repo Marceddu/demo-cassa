@@ -31,6 +31,8 @@ public class Dish {
     @Column(nullable = false)
     private boolean active = true;
 
+    private Integer weightGrams;
+
     @ManyToOne
     @JoinColumn(name = "kitchen_id")
     private Kitchen kitchen;
@@ -61,6 +63,8 @@ public class Dish {
     public void setPrice(BigDecimal price) { this.price = price; }
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
+    public Integer getWeightGrams() { return weightGrams; }
+    public void setWeightGrams(Integer weightGrams) { this.weightGrams = weightGrams; }
     public Kitchen getKitchen() { return kitchen; }
     public void setKitchen(Kitchen kitchen) { this.kitchen = kitchen; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
