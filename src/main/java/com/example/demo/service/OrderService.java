@@ -1,5 +1,6 @@
 package com.example.demo.service;
 
+import com.example.demo.dto.OrderDto;
 import com.example.demo.dto.OrderItemDto;
 import com.example.demo.controller.KitchenOrderController;
 import com.example.demo.dto.OrderRequestDto;
@@ -20,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -38,8 +40,7 @@ public class OrderService {
     private final OrderItemV2Repository orderItemV2Repository;
     private final OrderOptionRepository orderOptionRepository;
     private final OrderItemOptionRepository orderItemOptionRepository;
-    private final PrintService printService;
-    private final KitchenOrderController kitchenOrderController;
+
 
     public OrderService(OrderRepository orderRepo,
                         OrderItemRepository itemRepo,
@@ -50,9 +51,7 @@ public class OrderService {
                         KitchenOrderSequenceRepository kitchenOrderSequenceRepository,
                         OrderItemV2Repository orderItemV2Repository,
                         OrderOptionRepository orderOptionRepository,
-                        OrderItemOptionRepository orderItemOptionRepository,
-                        PrintService printService,
-                        KitchenOrderController kitchenOrderController) {
+                        OrderItemOptionRepository orderItemOptionRepository) {
         this.orderRepo = orderRepo;
         this.itemRepo = itemRepo;
         this.dishRepository = dishRepository;
@@ -63,8 +62,6 @@ public class OrderService {
         this.orderItemV2Repository = orderItemV2Repository;
         this.orderOptionRepository = orderOptionRepository;
         this.orderItemOptionRepository = orderItemOptionRepository;
-        this.printService = printService;
-        this.kitchenOrderController = kitchenOrderController;
     }
 
     @Transactional(readOnly = true)
@@ -87,15 +84,16 @@ public class OrderService {
     }
 
     @Transactional
-    public Order createFromDto(OrderRequestDto dto) {
+    public OrderDto createFromDto(OrderRequestDto dto) {
+    	OrderDto orderDto = new OrderDto();
         Order order = new Order();
         applyBaseFields(dto, order);
         replaceItemsFromDto(dto.items, order);
         calculateOrderTotals(order);
-        Order saved = orderRepo.save(order);
-        createKitchenOrdersFromDto(dto);
+        orderDto.setOrder(orderRepo.save(order));
+        orderDto.setIdKitchenOrder(createKitchenOrdersFromDto(dto));
         statsService.refreshSnapshot();
-        return saved;
+        return orderDto;
     }
 
     @Transactional
@@ -168,8 +166,9 @@ public class OrderService {
         order.setTotalAmount(totalAmount);
     }
 
-    private void createKitchenOrdersFromDto(OrderRequestDto dto) {
-        if (dto.items == null || dto.items.isEmpty()) return;
+    private List<String> createKitchenOrdersFromDto(OrderRequestDto dto) {
+    	List<String> idKitchenOrder = new ArrayList<String>();
+        if (dto.items == null || dto.items.isEmpty()) return null;
         CustomerOrderV2 customerOrder = new CustomerOrderV2();
         customerOrder.setTableName(dto.tableNo);
         customerOrder.setOrderNote(dto.notes);
@@ -207,10 +206,9 @@ public class OrderService {
             }
             ko.setKitchenTotalAmount(kitchenTotal);
             kitchenOrderRepository.save(ko);
-            try {
-                String receipt = kitchenOrderController.receipt(String.valueOf(ko.getId()));
-                printService.printReceipt(receipt);
-            } catch (Exception ignored) {}
+            //TODO: da spostare
+            idKitchenOrder.add(String.valueOf(ko.getId()));
+            
             customerTotal = customerTotal.add(kitchenTotal);
 
             for (OrderItemDto d : e.getValue()) {
@@ -243,6 +241,8 @@ public class OrderService {
         }
         customerOrder.setTotalAmount(customerTotal);
         customerOrderV2Repository.save(customerOrder);
+        
+        return idKitchenOrder;
     }
 
 
