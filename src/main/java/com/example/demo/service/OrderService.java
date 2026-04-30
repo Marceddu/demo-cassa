@@ -1,6 +1,7 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.OrderItemDto;
+import com.example.demo.controller.KitchenOrderController;
 import com.example.demo.dto.OrderRequestDto;
 import com.example.demo.exception.DishNotFoundException;
 import com.example.demo.exception.InvalidOrderStatusException;
@@ -37,6 +38,8 @@ public class OrderService {
     private final OrderItemV2Repository orderItemV2Repository;
     private final OrderOptionRepository orderOptionRepository;
     private final OrderItemOptionRepository orderItemOptionRepository;
+    private final PrintService printService;
+    private final KitchenOrderController kitchenOrderController;
 
     public OrderService(OrderRepository orderRepo,
                         OrderItemRepository itemRepo,
@@ -47,7 +50,9 @@ public class OrderService {
                         KitchenOrderSequenceRepository kitchenOrderSequenceRepository,
                         OrderItemV2Repository orderItemV2Repository,
                         OrderOptionRepository orderOptionRepository,
-                        OrderItemOptionRepository orderItemOptionRepository) {
+                        OrderItemOptionRepository orderItemOptionRepository,
+                        PrintService printService,
+                        KitchenOrderController kitchenOrderController) {
         this.orderRepo = orderRepo;
         this.itemRepo = itemRepo;
         this.dishRepository = dishRepository;
@@ -58,6 +63,8 @@ public class OrderService {
         this.orderItemV2Repository = orderItemV2Repository;
         this.orderOptionRepository = orderOptionRepository;
         this.orderItemOptionRepository = orderItemOptionRepository;
+        this.printService = printService;
+        this.kitchenOrderController = kitchenOrderController;
     }
 
     @Transactional(readOnly = true)
@@ -200,6 +207,10 @@ public class OrderService {
             }
             ko.setKitchenTotalAmount(kitchenTotal);
             kitchenOrderRepository.save(ko);
+            try {
+                String receipt = kitchenOrderController.receipt(String.valueOf(ko.getId()));
+                printService.printReceipt(receipt);
+            } catch (Exception ignored) {}
             customerTotal = customerTotal.add(kitchenTotal);
 
             for (OrderItemDto d : e.getValue()) {

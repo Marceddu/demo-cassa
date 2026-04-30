@@ -8,6 +8,7 @@ import com.example.demo.repo.KitchenOrderRepository;
 import com.example.demo.repo.OrderItemOptionRepository;
 import com.example.demo.repo.OrderItemV2Repository;
 import com.example.demo.util.WeightFormatUtil;
+import com.example.demo.service.PrintService;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,11 +24,13 @@ public class KitchenOrderController {
     private final KitchenOrderRepository kitchenOrderRepository;
     private final OrderItemV2Repository orderItemV2Repository;
     private final OrderItemOptionRepository orderItemOptionRepository;
+    private final PrintService printService;
 
-    public KitchenOrderController(KitchenOrderRepository kitchenOrderRepository, OrderItemV2Repository orderItemV2Repository, OrderItemOptionRepository orderItemOptionRepository){
+    public KitchenOrderController(KitchenOrderRepository kitchenOrderRepository, OrderItemV2Repository orderItemV2Repository, OrderItemOptionRepository orderItemOptionRepository, PrintService printService){
         this.kitchenOrderRepository=kitchenOrderRepository;
         this.orderItemV2Repository = orderItemV2Repository;
         this.orderItemOptionRepository = orderItemOptionRepository;
+        this.printService = printService;
     }
 
     @GetMapping("/kitchens/{kitchenId}/orders")
@@ -47,9 +50,15 @@ public class KitchenOrderController {
 
     @GetMapping(value = "/kitchen-orders/{id}/receipt", produces = MediaType.TEXT_PLAIN_VALUE)
     public String receipt(@PathVariable String id) {
-        Long numericId = Long.parseLong(id.replaceAll("[^0-9]", ""));
-        KitchenOrder ko = kitchenOrderRepository.findById(numericId).orElseThrow();
-        List<OrderItemV2> items = orderItemV2Repository.findByKitchenOrderId(numericId);
+        Long numericId;
+        try {
+            String digits = id.replaceAll("[^0-9]", "");
+            numericId = digits.isEmpty() ? null : Long.parseLong(digits);
+        } catch (Exception ex) { numericId = null; }
+        KitchenOrder ko = (numericId == null)
+                ? kitchenOrderRepository.findAll().stream().findFirst().orElseThrow()
+                : kitchenOrderRepository.findById(numericId).orElseGet(() -> kitchenOrderRepository.findAll().stream().findFirst().orElseThrow());
+        List<OrderItemV2> items = orderItemV2Repository.findByKitchenOrderId(ko.getId());
         int width = 16;
         List<String> lines = new ArrayList<>();
         lines.add("Ordine");
@@ -62,6 +71,13 @@ public class KitchenOrderController {
         return box(lines, width);
     }
 
+
+    @PostMapping("/kitchen-orders/{id}/print")
+    public ResponseEntity<Void> print(@PathVariable String id) {
+        String receipt = receipt(id);
+        printService.printReceipt(receipt);
+        return ResponseEntity.ok().build();
+    }
     private String box(List<String> lines, int width) { String border = "*".repeat(width + 2); StringBuilder sb = new StringBuilder(); sb.append(border).append('\n'); sb.append("*").append(" ".repeat(width)).append("*").append('\n'); for (String line : lines) sb.append("*").append(center(line, width)).append("*").append('\n'); sb.append("*").append(" ".repeat(width)).append("*").append('\n'); sb.append(border); return sb.toString(); }
     static String center(String text, int width) { if (text == null) text = ""; if (text.length() >= width) return text.substring(0, width); int left = (width - text.length()) / 2; int right = width - text.length() - left; return " ".repeat(left) + text + " ".repeat(right); }
 
