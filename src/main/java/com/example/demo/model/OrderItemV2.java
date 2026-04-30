@@ -19,6 +19,7 @@ public class OrderItemV2 {
  public Integer getQty(){return qty;}
  public Long getDishId(){return dishId;}
  public String getDishNameSnapshot(){return dishNameSnapshot;}
+ public String getItemNote(){return itemNote;}
  public Integer getWeightGramsSnapshot(){return weightGramsSnapshot;}
  public void setCustomerOrder(CustomerOrderV2 v){customerOrder=v;}
  public void setKitchenOrder(KitchenOrder v){kitchenOrder=v;}

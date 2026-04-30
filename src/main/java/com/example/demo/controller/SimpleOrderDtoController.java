@@ -135,6 +135,7 @@ public class SimpleOrderDtoController {
         dto.price = dish.getPrice();
         dto.active = dish.isActive();
         dto.kitchenId = dish.getKitchen() != null ? dish.getKitchen().getId() : null;
+        dto.weightGrams = dish.getWeightGrams();
         return dto;
     }
 }

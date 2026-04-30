@@ -1,99 +1,11 @@
-<!doctype html>
-<html lang="it">
-<head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Kitchen</title>
-  <style>
-    :root{--bg:#0b1220;--card:#121c32;--txt:#eef4ff;--muted:#9caed8;--line:#28406d;--accent:#60a5fa;--danger:#ef4444}
-    *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,sans-serif}
-    .wrap{max-width:1100px;margin:20px auto;padding:0 16px}
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
-    h1{margin:0 0 12px} h2{margin:0 0 8px;font-size:1rem;color:var(--accent)}
-    .orders{margin-top:12px;display:grid;gap:10px}
-    .order{border:1px solid var(--line);border-radius:12px;padding:10px;background:#0f172a}
-    .muted{color:var(--muted)}
-    .chip{display:inline-block;padding:4px 10px;border-radius:999px;background:#1e293b;border:1px solid #334155;font-size:.85rem;margin-right:8px}
-    .items{margin-top:8px;display:grid;gap:6px}
-    .item{border:1px solid #2b4169;border-radius:10px;padding:8px}
-    .head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
-    .btn{border:none;border-radius:8px;padding:6px 10px;font-weight:700;cursor:pointer}
-    .btn-danger{background:var(--danger);color:#fff}
-  </style>
-</head>
-<body>
-<div class="wrap">
-  <h1>Kitchen Dashboard</h1>
-  <div class="row">
-    <div class="card"><h2>Ordini per stato</h2><div id="totals"></div></div>
-    <div class="card"><h2>Storico cumulato</h2><div id="stats"></div></div>
-  </div>
-  <div class="card" style="margin-top:12px">
-    <h2>Ordini</h2>
-    <div id="orders" class="orders"></div>
-  </div>
-</div>
-<script>
-function esc(value){
-  return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
-}
-
-async function deleteOrder(orderId){
-  if (!confirm('Eliminare completamente questo ordine?')) return;
-  await fetch('/deleteordine/' + encodeURIComponent(orderId), { method: 'DELETE' });
-  await load();
-}
-
-function renderOrders(ord){
-  const ordersEl = document.getElementById('orders');
-  ordersEl.innerHTML = ord.map(o=>`
-    <div class="order">
-      <div class="head">
-        <div>
-          <div><span class="chip">${esc(o.status)}</span> Tavolo <b>${esc(o.tableNo||'-')}</b> • Totale <b>${esc(o.totalAmount)} €</b></div>
-          <div class="muted" style="margin-top:6px">Note ordine: <b>${esc(o.notes || '—')}</b></div>
-        </div>
-        <div>
-          <button class="btn btn-danger js-delete-order" data-order-id="${esc(o.id)}">Elimina ordine</button>
-        </div>
-      </div>
-      <div class="items">
-        ${(o.items||[]).map(i=>`
-          <div class="item">
-            <div><b>${esc(i.name)}</b> x${esc(i.qty)} (${esc(i.lineTotal)}€)</div>
-            <div class="muted" style="font-size:.9rem">Nota riga: ${esc(i.itemNote || i.item_note || '—')}</div>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-  `).join('');
-}
-
-document.getElementById('orders').addEventListener('click', async (e) => {
-  const btn = e.target.closest('.js-delete-order');
-  if (!btn) return;
-  const orderId = btn.getAttribute('data-order-id');
-  await deleteOrder(orderId);
-});
-
+<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Kitchen</title><style>body{font-family:sans-serif;padding:12px}.o{border:1px solid #ccc;margin:8px 0;padding:8px}.muted{color:#555}</style></head><body>
+<h2 id='title'>Kitchen</h2><div id='orders'></div><script>
+const q=new URLSearchParams(location.search); const kitchenId=q.get('kitchenId')||'1';
 async function load(){
-  const [tot, ord, st] = await Promise.all([
-    fetch('/gettotali').then(r=>r.json()),
-    fetch('/getordini?status=NEW,IN_PROGRESS,READY,DONE').then(r=>r.json()),
-    fetch('/admin/counters').then(r=>r.json())
-  ]);
-
-  document.getElementById('totals').innerHTML = Object.entries(tot).map(([k,v])=>`<span class="chip">${esc(k)}: <b>${esc(v)}</b></span>`).join('');
-  document.getElementById('stats').innerHTML = `
-    <div class="muted">Ordini totali: <b>${esc(st.totalOrders)}</b></div>
-    <div class="muted">Piatti totali: <b>${esc(st.totalDishes)}</b></div>
-    <div class="muted">Incasso totale: <b>${esc(st.totalRevenue)} €</b></div>
-  `;
-
-  renderOrders(ord);
+ const ks=await fetch('/api/v1/kitchens').then(r=>r.json()); const k=ks.find(x=>String(x.id)===String(kitchenId)); document.getElementById('title').textContent='Kitchen '+(k?k.name:kitchenId);
+ const list=await fetch('/api/v1/kitchens/'+kitchenId+'/orders').then(r=>r.json());
+ document.getElementById('orders').innerHTML=list.map(o=>`<div class='o'><div><b>N ${o.progressiveNumber}</b> • ${o.status}</div><div class='muted'>Tavolo: ${o.tableNo||'-'} • Note: ${o.orderNote||'-'}</div>${(o.items||[]).map(i=>`<div>${i.qty} ${i.dishName} ${(i.optionLabels||[]).join(', ')} <span class='muted'>${i.itemNote||''}</span></div>`).join('')}<div><b>Totale cucina:</b> ${o.kitchenTotalAmount} € • <b>Grammatura:</b> ${o.totalWeightFormatted||'-'}</div><button onclick='del(${o.id})'>DELETE</button></div>`).join('');
 }
-
-setInterval(load,3000); load();
-</script>
-</body></html>
+async function del(id){ await fetch('/api/v1/kitchen-orders/'+id,{method:'DELETE'}); await load(); }
+setInterval(load,1000); load();
+</script></body></html>

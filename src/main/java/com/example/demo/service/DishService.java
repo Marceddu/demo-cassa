@@ -38,6 +38,7 @@ public class DishService {
         dish.setPrice(dto.price);
         dish.setActive(dto.active == null || dto.active);
         dish.setKitchen(resolveKitchen(dto.kitchenId));
+        dish.setWeightGrams(dto.weightGrams);
         return dishRepository.save(dish);
     }
 
@@ -48,6 +49,7 @@ public class DishService {
         if (dto.price != null) dish.setPrice(dto.price);
         if (dto.active != null) dish.setActive(dto.active);
         if (dto.kitchenId != null) dish.setKitchen(resolveKitchen(dto.kitchenId));
+        if (dto.weightGrams != null) dish.setWeightGrams(dto.weightGrams);
         return dishRepository.save(dish);
     }
 

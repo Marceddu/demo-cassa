@@ -8,4 +8,5 @@ public class DishDto {
     public BigDecimal price;
     public Boolean active;
     public Long kitchenId;
+    public Integer weightGrams;
 }
