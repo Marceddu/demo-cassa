@@ -35,6 +35,8 @@ public class OrderService {
     private final KitchenOrderRepository kitchenOrderRepository;
     private final KitchenOrderSequenceRepository kitchenOrderSequenceRepository;
     private final OrderItemV2Repository orderItemV2Repository;
+    private final OrderOptionRepository orderOptionRepository;
+    private final OrderItemOptionRepository orderItemOptionRepository;
 
     public OrderService(OrderRepository orderRepo,
                         OrderItemRepository itemRepo,
@@ -43,7 +45,9 @@ public class OrderService {
                         CustomerOrderV2Repository customerOrderV2Repository,
                         KitchenOrderRepository kitchenOrderRepository,
                         KitchenOrderSequenceRepository kitchenOrderSequenceRepository,
-                        OrderItemV2Repository orderItemV2Repository) {
+                        OrderItemV2Repository orderItemV2Repository,
+                        OrderOptionRepository orderOptionRepository,
+                        OrderItemOptionRepository orderItemOptionRepository) {
         this.orderRepo = orderRepo;
         this.itemRepo = itemRepo;
         this.dishRepository = dishRepository;
@@ -52,6 +56,8 @@ public class OrderService {
         this.kitchenOrderRepository = kitchenOrderRepository;
         this.kitchenOrderSequenceRepository = kitchenOrderSequenceRepository;
         this.orderItemV2Repository = orderItemV2Repository;
+        this.orderOptionRepository = orderOptionRepository;
+        this.orderItemOptionRepository = orderItemOptionRepository;
     }
 
     @Transactional(readOnly = true)
@@ -212,6 +218,16 @@ public class OrderService {
                 it.setWeightGramsSnapshot(dish.getWeightGrams());
                 it.setItemNote(d.itemNote);
                 orderItemV2Repository.save(it);
+                if (d.optionIds != null) {
+                    for (Long optionId : d.optionIds) {
+                        OrderOption option = orderOptionRepository.findById(optionId).orElseThrow();
+                        OrderItemOption io = new OrderItemOption();
+                        io.setOrderItemId(it.getId());
+                        io.setOptionId(optionId);
+                        io.setLabelSnapshot(option.getLabel());
+                        orderItemOptionRepository.save(io);
+                    }
+                }
             }
         }
         customerOrder.setTotalAmount(customerTotal);

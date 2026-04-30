@@ -16,4 +16,5 @@ public class OrderItemDto {
     public Integer qty;
 
     public String itemNote;
+    public java.util.List<Long> optionIds;
 }
