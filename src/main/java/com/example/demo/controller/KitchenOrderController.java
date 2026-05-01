@@ -68,7 +68,11 @@ public class KitchenOrderController {
             if (row.length() > width - 2) row = row.substring(0, width - 2);
             lines.add(row);
         }
-        return box(lines, width);
+        String singleReceipt = box(lines, width);
+        
+        return singleReceipt
+                + "\n\n\n\n"
+                + singleReceipt;
     }
 
 
