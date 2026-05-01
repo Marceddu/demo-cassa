@@ -71,7 +71,7 @@ public class SimpleOrderDtoController {
 			
 			try {
 				String receipt = kitchenOrderController.receipt(String.valueOf(ko));
-				printService.printReceipt(receipt);
+				printService.printReceiptCopies(receipt);
 			} catch (Exception ignored) {
 			}
 

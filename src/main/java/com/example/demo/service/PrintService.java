@@ -59,26 +59,31 @@ public class PrintService {
             return;
         }
 
+        for (int i = 0; i < 2; i++) {
+            printSingleReceipt(receiptText);
+
+            if (i == 0) {
+                try {
+                    Thread.sleep(2000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+        }
+    }
+
+    private void printSingleReceipt(String receiptText) {
         try (Socket socket = new Socket()) {
             socket.connect(new InetSocketAddress("192.168.1.10", 9100), 1000);
             socket.setSoTimeout(1000);
 
             try (OutputStream out = socket.getOutputStream()) {
-                for (int i = 0; i < 2; i++) {
-                    out.write(new byte[] { 0x1B, 0x40 });
-                    out.write(receiptText.getBytes(StandardCharsets.US_ASCII));
-                    out.write("\n\n\n".getBytes(StandardCharsets.US_ASCII));
-                    out.write(new byte[] { 0x1D, 0x56, 0x41, 0x10 });
-                    out.write("\n\n".getBytes(StandardCharsets.US_ASCII));
-                    out.flush();
-
-                    try {
-                        Thread.sleep(300);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        return;
-                    }
-                }
+                out.write(new byte[] { 0x1B, 0x40 });
+                out.write(receiptText.getBytes(StandardCharsets.US_ASCII));
+                out.write("\n\n\n\n\n".getBytes(StandardCharsets.US_ASCII));
+                out.write(new byte[] { 0x1D, 0x56, 0x41, 0x10 });
+                out.flush();
             }
 
         } catch (Exception e) {
