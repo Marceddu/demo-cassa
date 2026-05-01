@@ -16,6 +16,7 @@ public class PrintService {
     @Value("${print.enabled:true}")
     private boolean printEnabled;
 
+    
     public void printReceipt(String receiptText) {
         if (!printEnabled) {
             log.info("Print disabled (print.enabled=false)");
@@ -23,11 +24,14 @@ public class PrintService {
         }
         try (Socket socket = new Socket("192.168.1.10", 9100);
              OutputStream out = socket.getOutputStream()) {
-            out.write(new byte[]{0x1B, 0x40}); // init
-            out.write(receiptText.getBytes(StandardCharsets.US_ASCII));
-            out.write("\n\n\n".getBytes(StandardCharsets.US_ASCII));
-            out.write(new byte[]{0x1D, 0x56, 0x41, 0x10}); // cut
-            out.flush();
+        	//modifica doppia stampa
+        	for (int i = 0; i < 2; i++) { 
+	            out.write(new byte[]{0x1B, 0x40}); // init
+	            out.write(receiptText.getBytes(StandardCharsets.US_ASCII));
+	            out.write("\n\n\n".getBytes(StandardCharsets.US_ASCII));
+	            out.write(new byte[]{0x1D, 0x56, 0x41, 0x10}); // cut
+	            out.flush();
+        	}
         } catch (Exception e) {
             log.error("Print error", e);
         }
