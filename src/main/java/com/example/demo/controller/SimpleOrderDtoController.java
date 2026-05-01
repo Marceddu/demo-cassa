@@ -68,9 +68,11 @@ public class SimpleOrderDtoController {
 		OrderDto orderDto = orderService.createFromDto(dto);
 
 		orderDto.getIdKitchenOrder().forEach(ko -> {
+			
 			try {
 				String receipt = kitchenOrderController.receipt(String.valueOf(ko));
-				printService.printReceipt(receipt);
+				for (int i=0; i < 2; i++)
+					printService.printReceipt(receipt);
 			} catch (Exception ignored) {
 			}
 
