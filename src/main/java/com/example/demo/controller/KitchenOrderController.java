@@ -70,9 +70,7 @@ public class KitchenOrderController {
         }
         String singleReceipt = box(lines, width);
         
-        return singleReceipt
-                + "\n\n\n\n"
-                + singleReceipt;
+        return singleReceipt;
     }
 
 
